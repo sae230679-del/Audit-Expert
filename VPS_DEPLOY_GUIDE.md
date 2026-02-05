@@ -247,37 +247,49 @@ curl -I http://localhost:5000
 - Команда `v-add-web-domain` не работает
 - Nginx конфигурация настраивается **вручную**
 
-### Конфигурация: `/etc/nginx/conf.d/help152fz.conf`
+### ВАЖНО: Конфиг размещается в `/etc/nginx/conf.d/domains/help152fz.ru.conf`
+
+НЕ создавать отдельный `/etc/nginx/conf.d/help152fz.conf` — конфиг Hestia в папке `domains/` имеет приоритет!
+
+### Рабочий конфиг HTTP (без SSL): `/etc/nginx/conf.d/domains/help152fz.ru.conf`
 
 ```nginx
 server {
-    listen 80;
+    listen 77.222.37.120:80;
     server_name help152fz.ru www.help152fz.ru;
 
     location / {
         proxy_pass http://127.0.0.1:5000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
+        proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
+    }
+
+    location /error/ {
+        alias /home/admin/web/help152fz.ru/document_errors/;
     }
 }
 ```
 
-### С SSL (HTTPS):
+### Рабочий конфиг с SSL (ТЕКУЩИЙ):
+
+**HTTP → HTTPS редирект:** `/etc/nginx/conf.d/domains/help152fz.ru.conf`
 ```nginx
 server {
-    listen 80;
+    listen 77.222.37.120:80;
     server_name help152fz.ru www.help152fz.ru;
     return 301 https://$host$request_uri;
 }
+```
 
+**HTTPS:** `/etc/nginx/conf.d/domains/help152fz.ru.ssl.conf`
+```nginx
 server {
-    listen 443 ssl;
+    listen 77.222.37.120:443 ssl;
     server_name help152fz.ru www.help152fz.ru;
 
     ssl_certificate /etc/letsencrypt/live/help152fz.ru/fullchain.pem;
@@ -293,46 +305,105 @@ server {
         proxy_pass http://127.0.0.1:5000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
+        proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
+    }
+
+    location /error/ {
+        alias /home/admin/web/help152fz.ru/document_errors/;
     }
 }
 ```
 
 ### Применение
 ```bash
-nginx -t && systemctl reload nginx
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
 ### Проблема: Домен отдаёт другой контент
-Если `help152fz.ru` возвращает Content-Length, отличный от `localhost:5000` — дефолтный конфиг nginx перехватывает запросы. Проверить:
+Если `help152fz.ru` возвращает Content-Length, отличный от `localhost:5000` — конфиг Hestia в `domains/` перехватывает запросы и проксирует на Apache:8080. Проверить:
 ```bash
-ls /etc/nginx/sites-enabled/
-ls /etc/nginx/conf.d/
+cat /etc/nginx/conf.d/domains/help152fz.ru.conf
+ls /etc/nginx/conf.d/domains/
 ```
-Удалить/переименовать конфликтующие конфиги.
+Перезаписать конфиг Hestia (см. ошибку 9.21).
 
 ### Важно: Создавать конфиг через heredoc
-Не использовать `nano` для критичных конфигов — изменения могут не сохраниться. Использовать `cat >`:
-```bash
-cat > /etc/nginx/conf.d/help152fz.conf << 'NGINX'
-# ... конфигурация ...
-NGINX
-```
+Не использовать `nano` для критичных конфигов — изменения могут не сохраниться. Использовать `sudo bash -c 'cat >'`.
 
 ---
 
 ## 7. SSL сертификат
 
+### Через certbot (РАБОЧИЙ СПОСОБ для данного сервера):
+
+**Шаг 1:** Установить certbot:
+```bash
+sudo apt install certbot -y
+```
+
+**Шаг 2:** Получить сертификат через standalone (webroot НЕ работает, см. ошибку 9.23):
+```bash
+sudo systemctl stop nginx
+sudo LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 certbot certonly --standalone -d help152fz.ru -d www.help152fz.ru --non-interactive --agree-tos --email admin@help152fz.ru
+sudo systemctl start nginx
+```
+
+**Шаг 3:** Обновить nginx конфиги (HTTP редирект + HTTPS):
+```bash
+# HTTP → HTTPS редирект
+sudo bash -c 'cat > /etc/nginx/conf.d/domains/help152fz.ru.conf << '\''EOF'\''
+server {
+    listen 77.222.37.120:80;
+    server_name help152fz.ru www.help152fz.ru;
+    return 301 https://$host$request_uri;
+}
+EOF'
+
+# HTTPS конфиг
+sudo bash -c 'cat > /etc/nginx/conf.d/domains/help152fz.ru.ssl.conf << '\''EOF'\''
+server {
+    listen 77.222.37.120:443 ssl;
+    server_name help152fz.ru www.help152fz.ru;
+
+    ssl_certificate /etc/letsencrypt/live/help152fz.ru/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/help152fz.ru/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /error/ {
+        alias /home/admin/web/help152fz.ru/document_errors/;
+    }
+}
+EOF'
+
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+**Шаг 4:** Проверить автообновление:
+```bash
+sudo certbot renew --dry-run
+```
+
+Сертификат действует до **06.05.2026**, автообновление настроено через systemd timer.
+
 ### Через Hestia (если WEB_SYSTEM включён):
 1. Web → выбрать домен → Edit
 2. SSL → Let's Encrypt → Save
 
-### Вручную (certbot):
+### Старый способ (НЕ использовать на данном сервере):
 ```bash
 sudo apt install certbot python3-certbot-nginx
 sudo certbot --nginx -d help152fz.ru -d www.help152fz.ru
@@ -770,7 +841,35 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ---
 
-### 9.22. Изменения не попали на GitHub
+### 9.22. Certbot UnicodeDecodeError на русской локали
+
+**Ошибка:** `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xd0 in position 0: invalid continuation byte`
+
+**Причина:** Русская локаль сервера конфликтует с certbot.
+
+**Решение:** Добавить `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8` перед командой:
+```bash
+sudo LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 certbot certonly --standalone -d help152fz.ru -d www.help152fz.ru --non-interactive --agree-tos --email admin@help152fz.ru
+```
+
+---
+
+### 9.23. Certbot webroot не работает (ACME challenge fail)
+
+**Ошибка:** `Certbot failed to authenticate some domains. Type: unauthorized`
+
+**Причина:** Nginx проксирует ВСЕ запросы (включая `.well-known/acme-challenge/`) на Node.js, а не на файлы в webroot.
+
+**Решение:** Использовать **standalone** метод — остановить nginx на время:
+```bash
+sudo systemctl stop nginx
+sudo LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 certbot certonly --standalone -d help152fz.ru -d www.help152fz.ru --non-interactive --agree-tos --email admin@help152fz.ru
+sudo systemctl start nginx
+```
+
+---
+
+### 9.24. Изменения не попали на GitHub
 
 **Решение:**
 ```bash
@@ -921,3 +1020,8 @@ cd /var/www/help152fz.ru && git pull origin main && npm install && npm run build
 - **РЕШЕНО**: Hestia nginx конфиг (`/etc/nginx/conf.d/domains/help152fz.ru.conf`) проксировал на Apache:8080 вместо Node.js:5000. Перезаписали конфиг — сайт заработал через домен.
 - **РЕШЕНО**: Кастомный конфиг `/etc/nginx/conf.d/help152fz.conf` игнорировался — конфиг Hestia в `domains/` имел приоритет. Удалили кастомный, перезаписали Hestia-конфиг.
 - curl http://help152fz.ru → Content-Length: 3476, X-Powered-By: Express (РАБОТАЕТ)
+- **РЕШЕНО**: Certbot UnicodeDecodeError — исправлено добавлением `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8`
+- **РЕШЕНО**: Certbot webroot challenge fail — nginx проксировал .well-known на Node.js. Использовали standalone метод (остановка nginx).
+- SSL сертификат Let's Encrypt получен (действует до 06.05.2026)
+- Nginx конфиги разделены: help152fz.ru.conf (HTTP→HTTPS редирект) + help152fz.ru.ssl.conf (HTTPS proxy)
+- HTTPS работает: nginx -t successful, systemctl reload nginx OK
