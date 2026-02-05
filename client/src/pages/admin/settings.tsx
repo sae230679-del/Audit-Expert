@@ -520,6 +520,19 @@ export default function AdminSettings() {
                   data-testid="switch-cases-page"
                 />
               </div>
+              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                <div>
+                  <p className="font-medium">Мониторинг — «В разработке»</p>
+                  <p className="text-sm text-muted-foreground">
+                    Показывать заглушку «В разработке» вместо оформления подписки на мониторинг
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.monitoringComingSoon ?? true}
+                  onCheckedChange={(checked) => updateField("monitoringComingSoon", checked)}
+                  data-testid="switch-monitoring-coming-soon"
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

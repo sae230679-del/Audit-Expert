@@ -172,7 +172,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const settings = await storage.getSettings();
       if (!settings) {
-        return res.json({ expressReportPrice: 900 });
+        return res.json({ expressReportPrice: 900, monitoringComingSoon: true });
       }
       // Return only public fields
       res.json({
@@ -193,6 +193,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         consentText: settings.consentText,
         maintenanceMode: settings.maintenanceMode || false,
         maintenanceMessage: settings.maintenanceMessage,
+        monitoringComingSoon: settings.monitoringComingSoon ?? true,
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch settings" });

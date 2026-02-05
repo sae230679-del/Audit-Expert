@@ -24,6 +24,7 @@ import {
   Download,
   Calendar,
   Eye,
+  Construction,
 } from "lucide-react";
 import type { UserSite, SiteAudit, AuditFinding } from "@shared/schema";
 
@@ -67,6 +68,10 @@ export default function SiteDetailPage() {
     queryKey: ["/api/user/sites", id, "audits"],
     enabled: !!id,
     queryFn: () => fetchWithAuth(`/api/user/sites/${id}/audits`),
+  });
+
+  const { data: publicSettings } = useQuery<{ monitoringComingSoon?: boolean }>({
+    queryKey: ["/api/settings/public"],
   });
 
   const latestAudit = audits?.[0];
@@ -391,16 +396,23 @@ export default function SiteDetailPage() {
                 <CardDescription>Настройте регулярную проверку соответствия</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8">
-                  <CreditCard className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Подписка не активна</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Оформите подписку для автоматической проверки сайта
-                  </p>
-                  <Link href="/payment">
-                    <Button data-testid="button-subscribe">Оформить подписку</Button>
-                  </Link>
-                </div>
+                {publicSettings?.monitoringComingSoon !== false ? (
+                  <div className="text-center py-8">
+                    <Construction className="h-12 w-12 mx-auto text-primary mb-4" />
+                    <h3 className="text-lg font-medium">В разработке</h3>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <CreditCard className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-2">Подписка не активна</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Оформите подписку для автоматической проверки сайта
+                    </p>
+                    <Link href="/payment">
+                      <Button data-testid="button-subscribe">Оформить подписку</Button>
+                    </Link>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

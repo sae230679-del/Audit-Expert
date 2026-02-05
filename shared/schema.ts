@@ -113,6 +113,7 @@ export const siteSettings = pgTable("site_settings", {
   yookassaTestMode: boolean("yookassa_test_mode").default(true),
   expressReportPrice: integer("express_report_price").default(900),
   casesPageEnabled: boolean("cases_page_enabled").default(true),
+  monitoringComingSoon: boolean("monitoring_coming_soon").default(true),
   // OAuth settings
   vkAppId: text("vk_app_id"),
   vkAppSecret: text("vk_app_secret"),
