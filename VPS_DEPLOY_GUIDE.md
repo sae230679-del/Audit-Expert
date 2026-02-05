@@ -729,7 +729,48 @@ npx playwright install chromium
 
 ---
 
-### 9.21. Изменения не попали на GitHub
+### 9.21. Hestia nginx конфиг проксирует на Apache вместо Node.js (КРИТИЧЕСКАЯ)
+
+**Симптомы:**
+- Браузер показывает "We're working on it!" (заглушка Hestia)
+- `curl -I http://help152fz.ru` → Content-Length: 2492 (заглушка)
+- `curl -I http://localhost:5000` → Content-Length: 3476 (приложение работает!)
+- Кастомный конфиг в `/etc/nginx/conf.d/help152fz.conf` не действует
+
+**Причина:** Hestia создаёт конфиг `/etc/nginx/conf.d/domains/help152fz.ru.conf` с `proxy_pass http://77.222.37.120:8080` (Apache). Этот конфиг имеет приоритет над кастомным, потому что содержит точный `server_name help152fz.ru`. Apache отдаёт заглушку из `/home/admin/web/help152fz.ru/public_html/`.
+
+**Решение:** Перезаписать конфиг Hestia:
+```bash
+sudo bash -c 'cat > /etc/nginx/conf.d/domains/help152fz.ru.conf << '\''EOF'\''
+server {
+    listen 77.222.37.120:80;
+    server_name help152fz.ru www.help152fz.ru;
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /error/ {
+        alias /home/admin/web/help152fz.ru/document_errors/;
+    }
+}
+EOF'
+sudo rm -f /etc/nginx/conf.d/help152fz.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+**Важно:** Файл помечен "DO NOT MODIFY" — Hestia перезапишет его при редактировании домена в панели. **Не трогать настройки домена** в Hestia Web.
+
+---
+
+### 9.22. Изменения не попали на GitHub
 
 **Решение:**
 ```bash
@@ -876,7 +917,7 @@ cd /var/www/help152fz.ru && git pull origin main && npm install && npm run build
 - Восстановление из дампа — 35 таблиц
 - Деплой через PM2 — порт 5000, статус online
 - PM2 автозапуск через systemd
-- Nginx конфиг в `/etc/nginx/conf.d/help152fz.conf`
 - HTTP 200 OK на localhost:5000
-- Hestia WEB_SYSTEM отключён — ручная настройка Nginx
-- Проблема с доменной маршрутизацией (дефолтный nginx перехватывает)
+- **РЕШЕНО**: Hestia nginx конфиг (`/etc/nginx/conf.d/domains/help152fz.ru.conf`) проксировал на Apache:8080 вместо Node.js:5000. Перезаписали конфиг — сайт заработал через домен.
+- **РЕШЕНО**: Кастомный конфиг `/etc/nginx/conf.d/help152fz.conf` игнорировался — конфиг Hestia в `domains/` имел приоритет. Удалили кастомный, перезаписали Hestia-конфиг.
+- curl http://help152fz.ru → Content-Length: 3476, X-Powered-By: Express (РАБОТАЕТ)
