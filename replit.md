@@ -8,10 +8,21 @@ Key features:
 - Free 30-second website compliance audit
 - 9 criteria checks (HTTPS/SSL, privacy policy, cookie consent, foreign resources, etc.)
 - Service packages for different website types (landing pages, e-commerce, medical sites)
-- Admin panel for managing packages, FAQ, orders, and site settings
+- Admin panel for managing packages, FAQ, orders, and site settings (31 admin pages)
 - Contact form with rate limiting and spam protection
 - Dark theme by default (with light theme toggle)
 - Maintenance mode for temporary site unavailability (admin setting)
+- AI Consultant (GigaChat/Yandex GPT/OpenAI) with admin-configurable system prompt
+- Knowledge base (справочник) with hierarchical structure (sections → topics → articles)
+- Referral program with custom links, commissions, payouts
+- YooKassa payment integration with promo codes and SBP support
+- Email notifications (SMTP with templates for all events)
+- Telegram notifications (bot API integration)
+- User cabinet with sites, reports, subscriptions, referrals, payouts, notification settings
+- External integrations: Yandex Metrika, Webmaster, online consultants, Marquiz
+- Contextual hints in audit form fields
+- RBAC with 5 roles (user, manager, lawyer, admin, superadmin)
+- Analytics dashboard (overview, users, express checks)
 
 ## User Preferences
 
@@ -105,12 +116,20 @@ Role hierarchy:
 4. **admin** - Full admin panel access except critical settings
 5. **superadmin** - Full system access including AI and payment settings
 
+### Notification Services
+- `server/email-service.ts` - SMTP email notifications (welcome, password reset, orders, payments, referrals, payouts)
+- `server/telegram-notifications.ts` - Telegram bot API notifications
+- `server/notification-service.ts` - Unified notification dispatcher
+
 ### User Cabinet Features
 - **Sites Dashboard**: Overview of all registered sites with compliance scores
 - **Site Detail**: Individual site view with tabs for audits, findings, reports
 - **Reports Page**: Filterable audit history table with color-coded status
 - **Subscriptions Page**: Tariff plan selection and management
 - **Referral Program**: Statistics and referral link generation
+- **Payouts**: Request and track payouts from referral earnings
+- **Notifications**: View notification history
+- **Notification Settings**: Configure email/Telegram preferences per event type
 
 ### Security Considerations
 - JWT tokens for admin authentication (requires SESSION_SECRET env var)
@@ -150,6 +169,19 @@ Role hierarchy:
 - `client/src/pages/admin/analytics-express.tsx` - Express check analytics page
 
 Note: The справочник (guide) is internal-only for AI document analysis and manager assistance, not public-facing.
+
+### Deployment
+- **Replit**: Autoscale deployment with `npm run build` → `npm run start`
+- **VPS**: Ubuntu 24.04 with Hestia Panel, deploy via GitHub → `git pull` → `npm install` → `npm run build` → `pm2 restart`
+
+### Recent Changes (2026-02-06)
+- Added AI Consultant admin page with provider selection, system prompt, test functionality
+- Added Knowledge Base (справочник) admin page with hierarchical management
+- Added External Integrations admin page (Yandex Metrika, Webmaster, consultants, Marquiz)
+- Added contextual hints (HintTooltip) to audit form fields
+- Added ExternalWidgets component for dynamic script/meta injection
+- Updated header for dynamic menu items (AI Consultant, Guide)
+- Configured production deployment settings
 
 ### Development Tools
 - Vite with React plugin
