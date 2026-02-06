@@ -26,16 +26,6 @@ export function getCheatsheet(): string {
 
 const isDevelopment = process.env.NODE_ENV !== "production";
 
-// Импорт функции расшифровки
-async function decryptApiKey(encryptedValue: string): Promise<string> {
-  try {
-    const { decrypt } = await import("./crypto");
-    return decrypt(encryptedValue);
-  } catch (e) {
-    console.error("[CONSULTATION-AI] Failed to decrypt API key:", e);
-    return encryptedValue; // Если расшифровка не удалась, возможно это plaintext ключ
-  }
-}
 
 // Кэш токенов
 let cachedGigaChatToken: { token: string; expiresAt: number } | null = null;
@@ -57,12 +47,11 @@ export interface ConsultationAISettings {
   useGuideKnowledge: boolean;
 }
 
-// Получение настроек AI консультаций из БД
 async function getConsultationAISettings(): Promise<ConsultationAISettings> {
-  const settings: ConsultationAISettings = {
-    primaryProvider: "yandex",
-    yandexEnabled: true,
-    gigachatEnabled: true,
+  const result: ConsultationAISettings = {
+    primaryProvider: "gigachat",
+    yandexEnabled: false,
+    gigachatEnabled: false,
     openaiEnabled: false,
     yandexApiKey: null,
     yandexFolderId: null,
@@ -73,56 +62,26 @@ async function getConsultationAISettings(): Promise<ConsultationAISettings> {
   };
 
   try {
-    const primarySetting = await storage.getSystemSetting("consultation_ai_primary");
-    if (primarySetting?.value) {
-      settings.primaryProvider = primarySetting.value as ConsultationProvider;
-    }
+    const siteSettings = await storage.getSettings();
+    if (!siteSettings) return result;
 
-    const yandexEnabledSetting = await storage.getSystemSetting("consultation_ai_yandex_enabled");
-    settings.yandexEnabled = yandexEnabledSetting?.value !== "false";
+    const provider = (siteSettings as any).aiConsultantProvider || siteSettings.defaultAiProvider || "gigachat";
+    result.primaryProvider = provider as ConsultationProvider;
 
-    const gigachatEnabledSetting = await storage.getSystemSetting("consultation_ai_gigachat_enabled");
-    settings.gigachatEnabled = gigachatEnabledSetting?.value !== "false";
+    result.gigachatEnabled = siteSettings.gigachatEnabled || false;
+    result.yandexEnabled = (siteSettings as any).yandexGptEnabled || false;
+    result.openaiEnabled = (siteSettings as any).openaiEnabled || false;
 
-    const openaiEnabledSetting = await storage.getSystemSetting("consultation_ai_openai_enabled");
-    settings.openaiEnabled = openaiEnabledSetting?.value === "true";
-
-    const guideKnowledgeSetting = await storage.getSystemSetting("consultation_ai_use_guide");
-    settings.useGuideKnowledge = guideKnowledgeSetting?.value !== "false";
-
-    // Получаем API ключи из secure_settings и расшифровываем
-    const yandexKeySetting = await storage.getSecureSetting("consultation_yandex_api_key");
-    if (yandexKeySetting?.encryptedValue) {
-      settings.yandexApiKey = await decryptApiKey(yandexKeySetting.encryptedValue);
-    } else {
-      settings.yandexApiKey = process.env.CONSULTATION_YANDEX_API_KEY || null;
-    }
-
-    const yandexFolder = await storage.getSystemSetting("consultation_yandex_folder_id");
-    settings.yandexFolderId = yandexFolder?.value || process.env.CONSULTATION_YANDEX_FOLDER_ID || null;
-
-    const yandexModel = await storage.getSystemSetting("consultation_yandex_model_uri");
-    settings.yandexModelUri = yandexModel?.value || null;
-
-    const gigachatKeySetting = await storage.getSecureSetting("consultation_gigachat_api_key");
-    if (gigachatKeySetting?.encryptedValue) {
-      settings.gigachatApiKey = await decryptApiKey(gigachatKeySetting.encryptedValue);
-    } else {
-      settings.gigachatApiKey = process.env.CONSULTATION_GIGACHAT_API_KEY || null;
-    }
-
-    const openaiKeySetting = await storage.getSecureSetting("consultation_openai_api_key");
-    if (openaiKeySetting?.encryptedValue) {
-      settings.openaiApiKey = await decryptApiKey(openaiKeySetting.encryptedValue);
-    } else {
-      settings.openaiApiKey = process.env.CONSULTATION_OPENAI_API_KEY || null;
-    }
+    result.gigachatApiKey = siteSettings.gigachatCredentials || process.env.CONSULTATION_GIGACHAT_API_KEY || process.env.GIGACHATAPIKEY || null;
+    result.yandexApiKey = (siteSettings as any).yandexGptApiKey || process.env.CONSULTATION_YANDEX_API_KEY || process.env.YANDEX_IAM_TOKEN || null;
+    result.yandexFolderId = (siteSettings as any).yandexGptFolderId || process.env.CONSULTATION_YANDEX_FOLDER_ID || null;
+    result.openaiApiKey = (siteSettings as any).openaiApiKey || process.env.CONSULTATION_OPENAI_API_KEY || process.env.OPENAIAPIKEY || null;
 
   } catch (e) {
     console.error("[CONSULTATION-AI] Error loading settings:", e);
   }
 
-  return settings;
+  return result;
 }
 
 // ============= YANDEX GPT =============
