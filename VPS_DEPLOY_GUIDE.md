@@ -1080,6 +1080,39 @@ PGPASSWORD=H3lp152Fz2026sec psql -h localhost -U help152fz_user -d help152fz < /
 
 ---
 
+### 9.33. db:push — ошибка "must be owner of table" (код 42501)
+
+**Ошибка:** `error: must be owner of table admin_logs` при выполнении `npm run db:push`
+
+**Причина:** Таблица `admin_logs` (или другая) была создана пользователем `postgres`, а `drizzle-kit push` работает от имени `help152fz_user`, который не является владельцем таблицы.
+
+**Решение:** Передать владение таблицей:
+```bash
+sudo -u postgres psql -d help152fz -c "ALTER TABLE admin_logs OWNER TO help152fz_user;"
+```
+
+**Если ошибка для нескольких таблиц — передать все разом:**
+```bash
+sudo -u postgres psql -d help152fz -c "
+DO \$\$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tableowner != 'help152fz_user')
+    LOOP
+        EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO help152fz_user';
+    END LOOP;
+END
+\$\$;"
+```
+
+**После исправления повторить миграцию:**
+```bash
+cd /var/www/help152fz.ru && npm run db:push
+```
+
+---
+
 ## 10. Команды диагностики
 
 ```bash
