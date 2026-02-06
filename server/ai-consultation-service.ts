@@ -311,7 +311,7 @@ async function callGigaChat(
         Accept: "application/json",
         Authorization: `Bearer ${token}`,
       },
-      ...(isDevelopment && { rejectUnauthorized: false }),
+      rejectUnauthorized: false,
     };
 
     const req = https.request(options, (res) => {

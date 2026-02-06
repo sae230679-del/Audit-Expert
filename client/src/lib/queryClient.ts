@@ -1,7 +1,6 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 function getAuthHeaders(): HeadersInit {
-  // Check for user token first, then admin token
   const userToken = localStorage.getItem("userToken");
   const adminToken = localStorage.getItem("adminToken");
   const token = userToken || adminToken;
@@ -10,6 +9,18 @@ function getAuthHeaders(): HeadersInit {
     headers["Authorization"] = `Bearer ${token}`;
   }
   return headers;
+}
+
+function handleUnauthorized() {
+  const isAdminPage = window.location.pathname.startsWith("/admin");
+  if (isAdminPage) {
+    localStorage.removeItem("adminToken");
+    queryClient.clear();
+    window.location.href = "/admin";
+  } else {
+    localStorage.removeItem("userToken");
+    queryClient.clear();
+  }
 }
 
 class ApiError extends Error {
@@ -31,6 +42,11 @@ async function throwIfResNotOk(res: Response) {
     } catch {
       data = { error: await res.text() || res.statusText };
     }
+
+    if (res.status === 401 && data?.code !== "NO_TOKEN") {
+      handleUnauthorized();
+    }
+
     throw new ApiError(data.error || `${res.status}: ${res.statusText}`, res, data);
   }
 }
@@ -72,6 +88,14 @@ export const getQueryFn: <T>(options: {
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;
+    }
+
+    if (res.status === 401) {
+      let data;
+      try { data = await res.clone().json(); } catch { data = {}; }
+      if (data?.code !== "NO_TOKEN") {
+        handleUnauthorized();
+      }
     }
 
     await throwIfResNotOk(res);

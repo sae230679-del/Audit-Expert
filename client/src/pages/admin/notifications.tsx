@@ -155,6 +155,16 @@ export default function AdminNotifications() {
     saveMutation.mutate(formData);
   };
 
+  const handle401 = (result: any) => {
+    if (result?.code === "TOKEN_EXPIRED" || result?.code === "INVALID_TOKEN" || result?.code === "NO_TOKEN") {
+      toast({ title: "Сессия истекла", description: "Войдите в систему заново", variant: "destructive" });
+      localStorage.removeItem("adminToken");
+      setTimeout(() => { window.location.href = "/admin"; }, 1500);
+      return true;
+    }
+    return false;
+  };
+
   const handleTestConnection = async () => {
     setTestConnectionLoading(true);
     setTestResult(null);
@@ -168,6 +178,12 @@ export default function AdminNotifications() {
         body: JSON.stringify(formData),
       });
       const result = await res.json();
+      if (res.status === 401) {
+        if (handle401(result)) return;
+        setTestResult({ type: "connection", success: false, message: "Сессия истекла. Войдите заново." });
+        toast({ title: "Сессия истекла", description: "Войдите в систему заново", variant: "destructive" });
+        return;
+      }
       const msg = result.message || result.error || (result.success ? "Подключение успешно" : "Ошибка подключения");
       setTestResult({ type: "connection", success: result.success, message: msg });
       toast({
@@ -176,8 +192,8 @@ export default function AdminNotifications() {
         variant: result.success ? "default" : "destructive",
       });
     } catch {
-      setTestResult({ type: "connection", success: false, message: "Ошибка запроса" });
-      toast({ title: "Ошибка запроса", variant: "destructive" });
+      setTestResult({ type: "connection", success: false, message: "Ошибка сетевого запроса" });
+      toast({ title: "Ошибка сетевого запроса", variant: "destructive" });
     } finally {
       setTestConnectionLoading(false);
     }
@@ -200,6 +216,11 @@ export default function AdminNotifications() {
         body: JSON.stringify({ email: testEmailAddress, ...formData }),
       });
       const result = await res.json();
+      if (res.status === 401) {
+        if (handle401(result)) return;
+        setTestResult({ type: "email", success: false, message: "Сессия истекла. Войдите заново." });
+        return;
+      }
       const emailMsg = result.message || result.error || (result.success ? "Письмо отправлено" : "Ошибка отправки");
       setTestResult({ type: "email", success: result.success, message: emailMsg });
       toast({
@@ -208,8 +229,8 @@ export default function AdminNotifications() {
         variant: result.success ? "default" : "destructive",
       });
     } catch {
-      setTestResult({ type: "email", success: false, message: "Ошибка запроса" });
-      toast({ title: "Ошибка запроса", variant: "destructive" });
+      setTestResult({ type: "email", success: false, message: "Ошибка сетевого запроса" });
+      toast({ title: "Ошибка сетевого запроса", variant: "destructive" });
     } finally {
       setTestEmailLoading(false);
     }
@@ -231,14 +252,21 @@ export default function AdminNotifications() {
         }),
       });
       const result = await res.json();
-      setTestResult({ type: "telegram", success: result.success, message: result.message || (result.success ? "Тест пройден" : "Ошибка теста") });
+      if (res.status === 401) {
+        if (handle401(result)) return;
+        setTestResult({ type: "telegram", success: false, message: "Сессия истекла. Войдите заново." });
+        return;
+      }
+      const tgMsg = result.message || result.error || (result.success ? "Тест пройден" : "Ошибка теста");
+      setTestResult({ type: "telegram", success: result.success, message: tgMsg });
       toast({
         title: result.success ? "Telegram тест пройден" : "Ошибка теста Telegram",
+        description: result.success ? undefined : tgMsg,
         variant: result.success ? "default" : "destructive",
       });
     } catch {
-      setTestResult({ type: "telegram", success: false, message: "Ошибка запроса" });
-      toast({ title: "Ошибка запроса", variant: "destructive" });
+      setTestResult({ type: "telegram", success: false, message: "Ошибка сетевого запроса" });
+      toast({ title: "Ошибка сетевого запроса", variant: "destructive" });
     } finally {
       setTestTelegramLoading(false);
     }

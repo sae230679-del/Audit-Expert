@@ -324,6 +324,12 @@ export default function AISettingsPage() {
         headers: { Authorization: `Bearer ${localStorage.getItem("adminToken")}` }
       });
       const result = await res.json();
+      if (res.status === 401) {
+        toast({ title: "Сессия истекла", description: "Войдите в систему заново", variant: "destructive" });
+        localStorage.removeItem("adminToken");
+        setTimeout(() => { window.location.href = "/admin"; }, 1500);
+        return;
+      }
       const message = result.message || result.error || (result.success ? "Подключение успешно" : "Ошибка подключения");
       setTestResults(prev => ({ ...prev, [provider]: { success: !!result.success, message } }));
       toast({

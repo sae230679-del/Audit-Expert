@@ -65,7 +65,7 @@ function checkRateLimit(ip: string): boolean {
 function verifyAdmin(req: any, res: any, next: any) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Unauthorized" });
+    return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
   }
 
   try {
@@ -76,16 +76,18 @@ function verifyAdmin(req: any, res: any, next: any) {
     }
     req.user = decoded;
     next();
-  } catch {
-    return res.status(401).json({ error: "Invalid token" });
+  } catch (err: any) {
+    if (err?.name === "TokenExpiredError") {
+      return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+    }
+    return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
   }
 }
 
-// Middleware to verify superadmin token
 function verifySuperAdmin(req: any, res: any, next: any) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Unauthorized" });
+    return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
   }
 
   try {
@@ -96,8 +98,11 @@ function verifySuperAdmin(req: any, res: any, next: any) {
     }
     req.user = decoded;
     next();
-  } catch {
-    return res.status(401).json({ error: "Invalid token" });
+  } catch (err: any) {
+    if (err?.name === "TokenExpiredError") {
+      return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+    }
+    return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
   }
 }
 
@@ -903,7 +908,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const token = jwt.sign(
         { id: user.id, username: user.username, role: user.role },
         JWT_SECRET,
-        { expiresIn: "24h" }
+        { expiresIn: "7d" }
       );
 
       res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
