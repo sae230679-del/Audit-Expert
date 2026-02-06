@@ -8,33 +8,47 @@ set -e
 APP_DIR="/var/www/help152fz.ru"
 PUBLIC_HTML="/home/admin/web/help152fz.ru/public_html"
 APP_NAME="help152fz"
+DB_URL="postgresql://help152fz_user:H3lp152Fz2026sec@localhost:5432/help152fz"
+BACKUP_DIR="/var/www/help152fz.ru/backups"
 
 echo "=== Help152FZ Deploy ==="
 echo "$(date)"
 
 cd $APP_DIR
 
-echo "1. Pulling latest code..."
-git pull origin main
+echo "1. Создание бэкапа БД перед деплоем..."
+mkdir -p $BACKUP_DIR
+BACKUP_FILE="$BACKUP_DIR/pre_deploy_$(date +%Y%m%d_%H%M%S).sql"
+PGPASSWORD=H3lp152Fz2026sec pg_dump -h localhost -U help152fz_user -d help152fz > "$BACKUP_FILE" 2>/dev/null && echo "   Бэкап сохранён: $BACKUP_FILE" || echo "   ВНИМАНИЕ: Бэкап не удался, продолжаем..."
 
-echo "2. Installing dependencies..."
+echo "2. Обновление кода с GitHub..."
+git stash 2>/dev/null || true
+git pull origin main
+git stash pop 2>/dev/null || true
+
+echo "3. Установка зависимостей..."
 npm install --production=false
 
-echo "3. Building application..."
+echo "4. Сборка приложения..."
 npm run build
 
-echo "4. Copying static files..."
-cp -r dist/public/* $PUBLIC_HTML/
+echo "5. Копирование статических файлов..."
+cp -r dist/public/* $PUBLIC_HTML/ 2>/dev/null || true
 
-echo "5. Running database migrations..."
-npm run db:push || echo "DB push skipped or failed"
+echo "6. Миграция базы данных..."
+echo "   ВАЖНО: Если появится вопрос о truncate — ВСЕГДА выбирайте 'No'!"
+npm run db:push || echo "   DB push пропущен или завершился с ошибкой"
 
-echo "6. Restarting application..."
+echo "7. Перезапуск приложения..."
 pm2 restart $APP_NAME
 
-echo "7. Checking status..."
+echo "8. Проверка статуса..."
 pm2 status $APP_NAME
 
+echo "9. Удаление старых бэкапов (старше 7 дней)..."
+find $BACKUP_DIR -name "pre_deploy_*.sql" -mtime +7 -delete 2>/dev/null || true
+
 echo ""
-echo "=== Deploy complete! ==="
-echo "Check logs: pm2 logs $APP_NAME --lines 20"
+echo "=== Деплой завершён! ==="
+echo "Проверить логи: pm2 logs $APP_NAME --lines 20"
+echo "Восстановить из бэкапа: PGPASSWORD=H3lp152Fz2026sec psql -h localhost -U help152fz_user -d help152fz < $BACKUP_FILE"
