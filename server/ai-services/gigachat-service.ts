@@ -88,25 +88,34 @@ export async function generateWithGigaChat(
   config?: Partial<GigaChatConfig>
 ): Promise<string> {
   const settings = await storage.getSettings();
+  const gigachatSettings = await storage.getGigaChatSettings();
   
-  if (!settings?.gigachatEnabled || !settings?.gigachatCredentials) {
+  const credentials = settings?.gigachatCredentials || gigachatSettings?.credentials;
+  const enabled = settings?.gigachatEnabled || gigachatSettings?.enabled;
+  
+  if (!enabled || !credentials) {
     throw new Error("GigaChat не настроен. Добавьте API ключ в настройках.");
   }
 
+  const scope = settings?.gigachatScope || 
+    (gigachatSettings?.isPersonal === false ? "GIGACHAT_API_CORP" : "GIGACHAT_API_PERS");
+
   const fullConfig: GigaChatConfig = {
-    credentials: settings.gigachatCredentials,
-    scope: settings.gigachatScope || "GIGACHAT_API_PERS",
-    model: config?.model || settings.gigachatModel || "GigaChat",
+    credentials,
+    scope,
+    model: config?.model || settings?.gigachatModel || gigachatSettings?.model || "GigaChat",
   };
 
   const token = await getAccessToken(fullConfig);
+
+  const maxTokens = gigachatSettings?.maxTokens || 4096;
 
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify({
       model: fullConfig.model,
       messages,
       temperature: 0.7,
-      max_tokens: 4096,
+      max_tokens: maxTokens,
     });
 
     const options = {
@@ -151,15 +160,21 @@ export async function generateWithGigaChat(
 export async function testGigaChatConnection(): Promise<{ success: boolean; message: string; models?: string[] }> {
   try {
     const settings = await storage.getSettings();
+    const gigachatSettings = await storage.getGigaChatSettings();
     
-    if (!settings?.gigachatCredentials) {
+    const credentials = settings?.gigachatCredentials || gigachatSettings?.credentials;
+    if (!credentials) {
       return { success: false, message: "API ключ не настроен" };
     }
 
+    const scope = settings?.gigachatScope || 
+      (gigachatSettings?.isPersonal === false ? "GIGACHAT_API_CORP" : "GIGACHAT_API_PERS");
+    const model = settings?.gigachatModel || gigachatSettings?.model || "GigaChat";
+
     const fullConfig: GigaChatConfig = {
-      credentials: settings.gigachatCredentials,
-      scope: settings.gigachatScope || "GIGACHAT_API_PERS",
-      model: settings.gigachatModel || "GigaChat",
+      credentials,
+      scope,
+      model,
     };
 
     const token = await getAccessToken(fullConfig);

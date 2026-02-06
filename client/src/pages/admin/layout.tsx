@@ -138,7 +138,6 @@ const menuSections: MenuSection[] = [
     items: [
       { title: "Аналитика", url: "/admin/analytics", icon: BarChart3 },
       { title: "Настройки ИИ", url: "/admin/ai-settings", icon: Bot },
-      { title: "GigaChat", url: "/admin/gigachat", icon: Sparkles },
       { title: "Промокоды", url: "/admin/promo-codes", icon: Ticket },
       { title: "Рефералы", url: "/admin/referrals", icon: Share2 },
       { title: "Платежи", url: "/admin/payments", icon: Wallet },

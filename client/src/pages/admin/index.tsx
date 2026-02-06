@@ -16,7 +16,6 @@ import AdminSites from "./sites";
 import AdminTickets from "./tickets";
 import AdminOrders from "./orders";
 import AdminMessages from "./messages";
-import AdminGigaChat from "./gigachat";
 import AdminAnalytics from "./analytics";
 import AdminAnalyticsUsers from "./analytics-users";
 import AdminAnalyticsExpress from "./analytics-express";
@@ -57,7 +56,7 @@ export default function AdminIndex() {
         <Route path="/admin/referrals" component={AdminReferrals} />
         <Route path="/admin/cases" component={AdminCases} />
         <Route path="/admin/faq" component={AdminFaq} />
-        <Route path="/admin/gigachat" component={AdminGigaChat} />
+        <Route path="/admin/gigachat">{() => { setLocation("/admin/ai-settings"); return null; }}</Route>
         <Route path="/admin/analytics" component={AdminAnalytics} />
         <Route path="/admin/analytics/users" component={AdminAnalyticsUsers} />
         <Route path="/admin/analytics/express" component={AdminAnalyticsExpress} />
