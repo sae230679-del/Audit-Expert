@@ -1036,6 +1036,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.post("/api/admin/packages/seed", verifyAdmin, async (req, res) => {
+    try {
+      const { templates } = req.body;
+      if (!Array.isArray(templates) || templates.length === 0) {
+        return res.status(400).json({ error: "Templates array required" });
+      }
+      const created = [];
+      for (const tmpl of templates) {
+        const pkg = await storage.createPackage({
+          name: tmpl.name,
+          description: tmpl.description || "",
+          price: tmpl.price || 0,
+          features: tmpl.features || [],
+          criteria: tmpl.criteria || [],
+          deadline: tmpl.deadline || "",
+          sortOrder: tmpl.sortOrder || 0,
+          isActive: true,
+        });
+        created.push(pkg);
+      }
+      res.json({ created: created.length, packages: created });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to seed packages" });
+    }
+  });
+
   // Admin FAQ
   app.get("/api/admin/faq", verifyAdmin, async (req, res) => {
     try {
