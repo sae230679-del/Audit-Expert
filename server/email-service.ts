@@ -186,22 +186,70 @@ export async function sendEmail(options: {
   }
 }
 
-export async function testEmailConnection(): Promise<{ success: boolean; error?: string }> {
-  if (!transporter) {
-    return { success: false, error: "SMTP транспорт не настроен" };
+export async function testEmailConnection(smtpSettings?: {
+  smtpHost?: string | null;
+  smtpPort?: number | null;
+  smtpUser?: string | null;
+  smtpPassword?: string | null;
+  smtpEncryption?: string | null;
+}): Promise<{ success: boolean; error?: string }> {
+  let testTransporter = transporter;
+
+  if (smtpSettings && smtpSettings.smtpHost && smtpSettings.smtpUser && smtpSettings.smtpPassword) {
+    const options = buildTransporterOptions(smtpSettings);
+    testTransporter = nodemailer.createTransport(options);
+  }
+
+  if (!testTransporter) {
+    return { success: false, error: "SMTP транспорт не настроен. Заполните все поля: сервер, логин, пароль." };
   }
 
   try {
-    await transporter.verify();
+    await testTransporter.verify();
     console.log("[EMAIL] SMTP connection verified successfully");
     return { success: true };
   } catch (error: any) {
     console.error("[EMAIL] SMTP connection verification failed:", error?.message);
-    return { success: false, error: error?.message || "Не удалось подключиться к SMTP серверу" };
+    let errorMsg = error?.message || "Не удалось подключиться к SMTP серверу";
+    if (errorMsg.includes("ECONNREFUSED")) {
+      errorMsg = "Соединение отклонено. Проверьте адрес сервера и порт.";
+    } else if (errorMsg.includes("ENOTFOUND")) {
+      errorMsg = "Сервер не найден. Проверьте адрес SMTP сервера.";
+    } else if (errorMsg.includes("ETIMEDOUT")) {
+      errorMsg = "Время ожидания истекло. Проверьте адрес и порт сервера.";
+    } else if (errorMsg.includes("auth") || errorMsg.includes("535") || errorMsg.includes("Authentication")) {
+      errorMsg = "Ошибка авторизации. Проверьте логин и пароль. Для Mail.ru используйте пароль приложения.";
+    } else if (errorMsg.includes("certificate") || errorMsg.includes("CERT")) {
+      errorMsg = "Ошибка SSL/TLS сертификата. Попробуйте другой тип шифрования.";
+    }
+    return { success: false, error: errorMsg };
   }
 }
 
-export async function sendTestEmail(to: string): Promise<{ success: boolean; error?: string }> {
+export async function sendTestEmail(to: string, smtpSettings?: {
+  smtpHost?: string | null;
+  smtpPort?: number | null;
+  smtpUser?: string | null;
+  smtpPassword?: string | null;
+  smtpFromName?: string | null;
+  smtpFromEmail?: string | null;
+  smtpEncryption?: string | null;
+}): Promise<{ success: boolean; error?: string }> {
+  let mailTransporter = transporter;
+  let mailFrom = fromAddress;
+
+  if (smtpSettings && smtpSettings.smtpHost && smtpSettings.smtpUser && smtpSettings.smtpPassword) {
+    const options = buildTransporterOptions(smtpSettings);
+    mailTransporter = nodemailer.createTransport(options);
+    const name = smtpSettings.smtpFromName || "Help152FZ";
+    const email = smtpSettings.smtpFromEmail || smtpSettings.smtpUser || "";
+    mailFrom = `"${name}" <${email}>`;
+  }
+
+  if (!mailTransporter) {
+    return { success: false, error: "SMTP транспорт не настроен. Сначала сохраните настройки SMTP." };
+  }
+
   const body = `
     <h2 style="margin:0 0 16px;color:#1a2744;font-size:20px;">Тестовое письмо</h2>
     <p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">
@@ -216,12 +264,24 @@ export async function sendTestEmail(to: string): Promise<{ success: boolean; err
 
   const html = getEmailTemplate("Тестовое письмо — Help152FZ", body);
 
-  return sendEmail({
-    to,
-    subject: "Тестовое письмо — Help152FZ",
-    html,
-    text: "Это тестовое письмо от платформы Help152FZ. SMTP настроен корректно.",
-  });
+  try {
+    await mailTransporter.sendMail({
+      from: mailFrom,
+      to,
+      subject: "Тестовое письмо — Help152FZ",
+      html,
+      text: "Это тестовое письмо от платформы Help152FZ. SMTP настроен корректно.",
+    });
+    console.log(`[EMAIL] Test email sent to ${to}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error(`[EMAIL] Failed to send test email to ${to}:`, error?.message);
+    let errorMsg = error?.message || "Неизвестная ошибка отправки";
+    if (errorMsg.includes("auth") || errorMsg.includes("535") || errorMsg.includes("Authentication")) {
+      errorMsg = "Ошибка авторизации. Для Mail.ru/Яндекса нужен пароль приложения, а не обычный пароль от почты.";
+    }
+    return { success: false, error: errorMsg };
+  }
 }
 
 export async function sendWelcomeEmail(

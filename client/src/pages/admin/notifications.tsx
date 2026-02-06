@@ -168,9 +168,11 @@ export default function AdminNotifications() {
         body: JSON.stringify(formData),
       });
       const result = await res.json();
-      setTestResult({ type: "connection", success: result.success, message: result.message || (result.success ? "Подключение успешно" : "Ошибка подключения") });
+      const msg = result.message || result.error || (result.success ? "Подключение успешно" : "Ошибка подключения");
+      setTestResult({ type: "connection", success: result.success, message: msg });
       toast({
         title: result.success ? "Подключение успешно" : "Ошибка подключения",
+        description: result.success ? undefined : msg,
         variant: result.success ? "default" : "destructive",
       });
     } catch {
@@ -198,9 +200,11 @@ export default function AdminNotifications() {
         body: JSON.stringify({ email: testEmailAddress, ...formData }),
       });
       const result = await res.json();
-      setTestResult({ type: "email", success: result.success, message: result.message || (result.success ? "Письмо отправлено" : "Ошибка отправки") });
+      const emailMsg = result.message || result.error || (result.success ? "Письмо отправлено" : "Ошибка отправки");
+      setTestResult({ type: "email", success: result.success, message: emailMsg });
       toast({
         title: result.success ? "Тестовое письмо отправлено" : "Ошибка отправки",
+        description: result.success ? undefined : emailMsg,
         variant: result.success ? "default" : "destructive",
       });
     } catch {

@@ -3331,7 +3331,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/admin/notifications/test-email", verifySuperAdmin, async (req, res) => {
     try {
       const { testEmailConnection } = await import("./email-service");
-      const result = await testEmailConnection();
+      const smtpSettings = {
+        smtpHost: req.body.smtpHost,
+        smtpPort: req.body.smtpPort,
+        smtpUser: req.body.smtpUser,
+        smtpPassword: req.body.smtpPassword,
+        smtpEncryption: req.body.smtpEncryption,
+      };
+      const result = await testEmailConnection(smtpSettings);
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ success: false, error: error?.message || "Test failed" });
@@ -3341,10 +3348,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Admin: Send test email
   app.post("/api/admin/notifications/send-test-email", verifySuperAdmin, async (req, res) => {
     try {
-      const { to } = req.body;
-      if (!to) return res.status(400).json({ error: "Email address required" });
+      const { to, email } = req.body;
+      const recipient = to || email;
+      if (!recipient) return res.status(400).json({ error: "Email address required" });
       const { sendTestEmail } = await import("./email-service");
-      const result = await sendTestEmail(to);
+      const smtpSettings = {
+        smtpHost: req.body.smtpHost,
+        smtpPort: req.body.smtpPort,
+        smtpUser: req.body.smtpUser,
+        smtpPassword: req.body.smtpPassword,
+        smtpFromName: req.body.smtpFromName,
+        smtpFromEmail: req.body.smtpFromEmail,
+        smtpEncryption: req.body.smtpEncryption,
+      };
+      const result = await sendTestEmail(recipient, smtpSettings);
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ success: false, error: error?.message || "Send failed" });
