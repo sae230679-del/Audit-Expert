@@ -5,8 +5,24 @@
  */
 
 import https from "https";
+import fs from "fs";
+import path from "path";
 import { guideKnowledgeService } from "./guide-knowledge-service";
 import { storage } from "./storage";
+
+let cachedCheatsheet: string | null = null;
+
+export function getCheatsheet(): string {
+  if (cachedCheatsheet) return cachedCheatsheet;
+  try {
+    const filePath = path.join(process.cwd(), "server", "data", "fz152-cheatsheet.md");
+    cachedCheatsheet = fs.readFileSync(filePath, "utf-8");
+    return cachedCheatsheet;
+  } catch (e) {
+    console.error("[CONSULTATION-AI] Failed to load cheatsheet:", e);
+    return "";
+  }
+}
 
 const isDevelopment = process.env.NODE_ENV !== "production";
 
@@ -529,6 +545,13 @@ export async function processConsultationMessage(
     } catch (e) {
       console.error("[CONSULTATION-AI] Failed to get guide knowledge:", e);
     }
+  }
+
+  const cheatsheet = getCheatsheet();
+  if (cheatsheet) {
+    context = context
+      ? context + "\n\n---\n\nДОПОЛНИТЕЛЬНАЯ ШПАРГАЛКА:\n" + cheatsheet.slice(0, 3000)
+      : "ШПАРГАЛКА ПО ФЗ-152:\n" + cheatsheet.slice(0, 4000);
   }
 
   if (!context) {

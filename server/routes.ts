@@ -1161,6 +1161,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/admin/ai/cheatsheet", verifySuperAdmin, async (req, res) => {
+    try {
+      const { getCheatsheet } = await import("./ai-consultation-service");
+      const content = getCheatsheet();
+      res.json({ content });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to load cheatsheet" });
+    }
+  });
+
   // Test AI provider connection
   app.get("/api/admin/ai/test/:provider", verifySuperAdmin, async (req, res) => {
     try {
