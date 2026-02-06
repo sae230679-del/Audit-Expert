@@ -24,8 +24,10 @@ import {
   type TicketMessage, type InsertTicketMessage,
   type AdminLog, type InsertAdminLog,
   type Document, type InsertDocument,
+  type PasswordReset, type InsertPasswordReset,
   users, packages, faqItems, siteSettings, contactMessages, orders, menuItems, cases, promoCodes, referralSettings, referrals, payouts, notifications, userSubscriptions, commissions,
-  userSites, siteAudits, auditFindings, subscriptionPlans, siteSubscriptions, tickets, ticketMessages, adminLogs, documents
+  userSites, siteAudits, auditFindings, subscriptionPlans, siteSubscriptions, tickets, ticketMessages, adminLogs, documents,
+  passwordResets
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql, inArray } from "drizzle-orm";
@@ -130,6 +132,11 @@ export interface IStorage {
   // User Subscriptions
   getUserSubscription(userId: string): Promise<UserSubscription | undefined>;
   createOrUpdateSubscription(userId: string, data: Partial<InsertUserSubscription>): Promise<UserSubscription>;
+
+  // Password Resets
+  createPasswordReset(data: InsertPasswordReset): Promise<PasswordReset>;
+  getPasswordResetByToken(tokenHash: string): Promise<PasswordReset | undefined>;
+  markPasswordResetUsed(id: string): Promise<void>;
 
   // Commissions
   getCommissionsByUserId(userId: string): Promise<Commission[]>;
@@ -565,6 +572,23 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(userSubscriptions).values({ userId, ...data }).returning();
     return created;
+  }
+
+  // Password Resets
+  async createPasswordReset(data: InsertPasswordReset): Promise<PasswordReset> {
+    const [created] = await db.insert(passwordResets).values(data).returning();
+    return created;
+  }
+
+  async getPasswordResetByToken(tokenHash: string): Promise<PasswordReset | undefined> {
+    const [reset] = await db.select().from(passwordResets)
+      .where(and(eq(passwordResets.tokenHash, tokenHash), gte(passwordResets.expiresAt, new Date())));
+    if (reset && reset.usedAt) return undefined;
+    return reset || undefined;
+  }
+
+  async markPasswordResetUsed(id: string): Promise<void> {
+    await db.update(passwordResets).set({ usedAt: new Date() }).where(eq(passwordResets.id, id));
   }
 
   // Commissions

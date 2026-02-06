@@ -188,6 +188,12 @@ export default function AuthPage() {
                   Войти
                 </Button>
 
+                <div className="text-center">
+                  <Link href="/reset-password" className="text-sm text-primary hover:underline" data-testid="link-forgot-password">
+                    Забыли пароль?
+                  </Link>
+                </div>
+
                 <div className="relative my-4">
                   <div className="absolute inset-0 flex items-center">
                     <span className="w-full border-t" />

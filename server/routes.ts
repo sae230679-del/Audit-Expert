@@ -128,6 +128,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     console.log("Telegram notifications initialization failed");
   }
 
+  // Initialize Email service
+  try {
+    const { initEmailService } = await import("./email-service");
+    await initEmailService();
+  } catch (error) {
+    console.log("Email service initialization skipped");
+  }
+
   // ====================
   // PUBLIC ROUTES
   // ====================
@@ -1106,6 +1114,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.post("/api/admin/faq/seed", verifySuperAdmin, async (req, res) => {
+    try {
+      const { faqSeedData } = await import("./data/faq-seed-data");
+      const existing = await storage.getAllFaqItems();
+      if (existing.length > 0) {
+        return res.status(400).json({ error: "FAQ уже содержит вопросы. Удалите существующие перед заполнением." });
+      }
+      const created = [];
+      for (const item of faqSeedData) {
+        const result = await storage.createFaqItem(item);
+        created.push(result);
+      }
+      res.json({ success: true, created: created.length });
+    } catch (error) {
+      console.error("Failed to seed FAQ:", error);
+      res.status(500).json({ error: "Failed to seed FAQ items" });
+    }
+  });
+
   // Admin Messages
   app.get("/api/admin/messages", verifyAdmin, async (req, res) => {
     try {
@@ -1224,6 +1251,98 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     } catch (error) {
       res.status(500).json({ error: "Failed to test GigaChat connection" });
+    }
+  });
+
+  app.post("/api/admin/guide/seed", verifySuperAdmin, async (req, res) => {
+    try {
+      const { guideSections, guideTopicsMap, guideArticlesData } = await import("./data/guide-seed-data");
+      const { db } = await import("./db");
+      const schema = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const existingSections = await db.select().from(schema.guideSections);
+      if (existingSections.length > 0) {
+        return res.status(400).json({ error: "Справочник уже содержит данные. Удалите существующие перед заполнением." });
+      }
+
+      const sectionIdMap: Record<string, number> = {};
+      for (const section of guideSections) {
+        const [created] = await db.insert(schema.guideSections).values({
+          slug: section.slug,
+          title: section.title,
+          description: section.description,
+          icon: section.icon,
+          sortOrder: section.sortOrder,
+          isVisible: true,
+        }).returning();
+        sectionIdMap[section.slug] = created.id;
+      }
+
+      const topicIdMap: Record<string, number> = {};
+      for (const [sectionSlug, topics] of Object.entries(guideTopicsMap)) {
+        const sectionId = sectionIdMap[sectionSlug];
+        if (!sectionId) continue;
+        for (const topic of topics) {
+          const [created] = await db.insert(schema.guideTopics).values({
+            sectionId,
+            slug: topic.slug,
+            title: topic.title,
+            description: topic.description,
+            sortOrder: topic.sortOrder,
+            isPublished: true,
+          }).returning();
+          topicIdMap[topic.slug] = created.id;
+        }
+      }
+
+      let articlesCreated = 0;
+      for (const article of guideArticlesData) {
+        const topicId = topicIdMap[article.topicSlug];
+        if (!topicId) continue;
+        await db.insert(schema.guideArticles).values({
+          topicId,
+          slug: article.slug,
+          title: article.title,
+          summary: article.summary,
+          status: "published",
+          lawTags: article.lawTags,
+          topicTags: article.topicTags,
+          bodyBaseMd: article.bodyBaseMd,
+          publishedAt: new Date(),
+        });
+        articlesCreated++;
+      }
+
+      res.json({
+        success: true,
+        sections: Object.keys(sectionIdMap).length,
+        topics: Object.keys(topicIdMap).length,
+        articles: articlesCreated,
+      });
+    } catch (error) {
+      console.error("Failed to seed guide:", error);
+      res.status(500).json({ error: "Failed to seed guide data" });
+    }
+  });
+
+  app.post("/api/ai/chat", async (req, res) => {
+    try {
+      const { question, context } = req.body;
+      if (!question || typeof question !== "string") {
+        return res.status(400).json({ error: "Question is required" });
+      }
+      const { processConsultationMessage } = await import("./ai-consultation-service");
+      const history = req.body.history || [];
+      const result = await processConsultationMessage(question, history);
+      res.json(result);
+    } catch (error: any) {
+      console.error("[AI Chat] Error:", error);
+      res.status(500).json({
+        answer: "Извините, произошла ошибка при обработке запроса. Пожалуйста, попробуйте позже или проверьте настройки AI-провайдеров в панели администратора.",
+        sources: [],
+        provider: "error",
+      });
     }
   });
 
@@ -1519,6 +1638,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           }).catch(err => console.error("[TELEGRAM] Referral notification failed:", err));
         }
       }
+
+      // Create default notification preferences
+      await storage.createOrUpdateSubscription(user.id, {
+        emailNews: true,
+        emailPromo: true,
+        inAppNotifications: true,
+        emailOrders: true,
+        emailPayments: true,
+        emailReferrals: true,
+        emailAuditReports: true,
+        emailPasswordReset: true,
+      });
+
+      // Send welcome notification
+      import("./notification-service").then(({ dispatchNotification }) => {
+        dispatchNotification('user_registered', {
+          userId: user.id,
+          email: data.email,
+          username: data.username,
+        }).catch(err => console.error("[NOTIFY] Welcome notification failed:", err));
+      });
 
       const token = jwt.sign(
         { id: user.id, username: user.username, role: "user" },
@@ -2891,6 +3031,197 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json({ success: true });
     } catch {
       res.status(500).json({ error: "Failed to delete site" });
+    }
+  });
+
+  // ================================
+  // NOTIFICATION & EMAIL SETTINGS
+  // ================================
+
+  // Admin: Get notification settings (SMTP + TG + toggles)
+  app.get("/api/admin/notifications/settings", verifySuperAdmin, async (req, res) => {
+    try {
+      const settings = await storage.getSettings();
+      if (!settings) return res.json({});
+      res.json({
+        smtpEnabled: settings.smtpEnabled,
+        smtpHost: settings.smtpHost,
+        smtpPort: settings.smtpPort,
+        smtpUser: settings.smtpUser,
+        smtpPassword: settings.smtpPassword,
+        smtpFromName: settings.smtpFromName,
+        smtpFromEmail: settings.smtpFromEmail,
+        smtpEncryption: settings.smtpEncryption,
+        telegramBotToken: settings.telegramBotToken,
+        telegramChatId: settings.telegramChatId,
+        telegramNotificationsEnabled: settings.telegramNotificationsEnabled,
+        telegramGroupDescription: settings.telegramGroupDescription,
+        notifyEmailRegistration: settings.notifyEmailRegistration,
+        notifyEmailOrder: settings.notifyEmailOrder,
+        notifyEmailPayment: settings.notifyEmailPayment,
+        notifyEmailReferral: settings.notifyEmailReferral,
+        notifyEmailExpressReport: settings.notifyEmailExpressReport,
+        notifyEmailPasswordReset: settings.notifyEmailPasswordReset,
+        notifyTgRegistration: settings.notifyTgRegistration,
+        notifyTgOrder: settings.notifyTgOrder,
+        notifyTgPayment: settings.notifyTgPayment,
+        notifyTgReferral: settings.notifyTgReferral,
+        notifyTgExpressReport: settings.notifyTgExpressReport,
+      });
+    } catch {
+      res.status(500).json({ error: "Failed to fetch notification settings" });
+    }
+  });
+
+  // Admin: Update notification settings
+  app.put("/api/admin/notifications/settings", verifySuperAdmin, async (req, res) => {
+    try {
+      const updated = await storage.updateSettings(req.body);
+      
+      // Reinitialize email/telegram if settings changed
+      if (req.body.smtpHost || req.body.smtpEnabled !== undefined) {
+        const { updateEmailTransporter } = await import("./email-service");
+        updateEmailTransporter({
+          smtpEnabled: updated.smtpEnabled || false,
+          smtpHost: updated.smtpHost || "",
+          smtpPort: updated.smtpPort || 587,
+          smtpUser: updated.smtpUser || "",
+          smtpPassword: updated.smtpPassword || "",
+          smtpFromName: updated.smtpFromName || "",
+          smtpFromEmail: updated.smtpFromEmail || "",
+          smtpEncryption: updated.smtpEncryption || "tls",
+        });
+      }
+      
+      if (req.body.telegramBotToken !== undefined || req.body.telegramChatId !== undefined) {
+        updateTelegramSettings({
+          botToken: updated.telegramBotToken || "",
+          chatId: updated.telegramChatId || "",
+          enabled: updated.telegramNotificationsEnabled || false,
+        });
+      }
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to update notification settings", details: error?.message });
+    }
+  });
+
+  // Admin: Test email connection
+  app.post("/api/admin/notifications/test-email", verifySuperAdmin, async (req, res) => {
+    try {
+      const { testEmailConnection } = await import("./email-service");
+      const result = await testEmailConnection();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error?.message || "Test failed" });
+    }
+  });
+
+  // Admin: Send test email
+  app.post("/api/admin/notifications/send-test-email", verifySuperAdmin, async (req, res) => {
+    try {
+      const { to } = req.body;
+      if (!to) return res.status(400).json({ error: "Email address required" });
+      const { sendTestEmail } = await import("./email-service");
+      const result = await sendTestEmail(to);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error?.message || "Send failed" });
+    }
+  });
+
+  // Admin: Test telegram connection
+  app.post("/api/admin/notifications/test-telegram", verifySuperAdmin, async (req, res) => {
+    try {
+      const { botToken, chatId } = req.body;
+      if (!botToken || !chatId) {
+        return res.status(400).json({ success: false, error: "Bot token and chat ID required" });
+      }
+      const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: "Help152FZ: Тестовое сообщение. Уведомления работают!",
+          parse_mode: "HTML",
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.text();
+        return res.json({ success: false, error: errorData });
+      }
+      res.json({ success: true, message: "Тестовое сообщение отправлено" });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error?.message || "Test failed" });
+    }
+  });
+
+  // ================================
+  // PASSWORD RECOVERY
+  // ================================
+
+  // Request password reset
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) return res.status(400).json({ error: "Email обязателен" });
+
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.json({ success: true, message: "Если email зарегистрирован, вы получите письмо" });
+      }
+
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+      const expiresAt = new Date(Date.now() + 3600000); // 1 hour
+
+      await storage.createPasswordReset({
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+      });
+
+      // Send email with reset link
+      const { dispatchNotification } = await import("./notification-service");
+      const resetLink = `${req.protocol}://${req.get('host')}/reset-password?token=${resetToken}`;
+      await dispatchNotification('password_reset', {
+        userId: user.id,
+        email: user.email || email,
+        username: user.username,
+        resetLink,
+      });
+
+      res.json({ success: true, message: "Если email зарегистрирован, вы получите письмо" });
+    } catch (error: any) {
+      console.error("[AUTH] Forgot password error:", error?.message);
+      res.status(500).json({ error: "Ошибка при восстановлении пароля" });
+    }
+  });
+
+  // Reset password with token
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+      if (!token || !newPassword) return res.status(400).json({ error: "Токен и новый пароль обязательны" });
+      if (newPassword.length < 6) return res.status(400).json({ error: "Пароль должен быть минимум 6 символов" });
+
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const resetRecord = await storage.getPasswordResetByToken(tokenHash);
+
+      if (!resetRecord) {
+        return res.status(400).json({ error: "Недействительный или просроченный токен" });
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await storage.updateUser(resetRecord.userId, { password: hashedPassword } as any);
+      await storage.markPasswordResetUsed(resetRecord.id);
+
+      res.json({ success: true, message: "Пароль успешно изменён" });
+    } catch (error: any) {
+      console.error("[AUTH] Reset password error:", error?.message);
+      res.status(500).json({ error: "Ошибка при сбросе пароля" });
     }
   });
 

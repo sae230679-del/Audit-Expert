@@ -43,6 +43,7 @@ import {
   Bot,
   Wallet,
   Home,
+  Bell,
 } from "lucide-react";
 
 type RoleColor = "blue" | "green" | "purple" | "orange" | "red";
@@ -141,6 +142,7 @@ const menuSections: MenuSection[] = [
       { title: "Промокоды", url: "/admin/promo-codes", icon: Ticket },
       { title: "Рефералы", url: "/admin/referrals", icon: Share2 },
       { title: "Платежи", url: "/admin/payments", icon: Wallet },
+      { title: "Уведомления", url: "/admin/notifications", icon: Bell },
       { title: "Настройки сайта", url: "/admin/settings", icon: Settings },
     ],
   },

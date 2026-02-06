@@ -55,6 +55,7 @@ import {
 } from "lucide-react";
 import { SiWhatsapp, SiTelegram, SiVk } from "react-icons/si";
 import type { Order, Package as PackageType, Notification, Commission, Payout, UserSubscription, UserSite, SiteAudit } from "@shared/schema";
+import NotificationSettings from "@/pages/cabinet/notification-settings";
 
 interface UserInfo {
   id: string;
@@ -551,6 +552,10 @@ export default function CabinetPage() {
                     {unreadCount}
                   </span>
                 )}
+              </TabsTrigger>
+              <TabsTrigger value="notify-settings" data-testid="tab-notify-settings" className="text-xs md:text-sm">
+                <Settings className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Настройки</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1687,6 +1692,10 @@ export default function CabinetPage() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="notify-settings">
+            <NotificationSettings />
           </TabsContent>
         </Tabs>
       </main>

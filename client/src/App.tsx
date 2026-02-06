@@ -17,6 +17,7 @@ import FullAuditPage from "@/pages/full-audit";
 import ToolsPage from "@/pages/tools";
 import GuidePage from "@/pages/guide";
 import AiChatPage from "@/pages/ai-chat";
+import ResetPasswordPage from "@/pages/reset-password";
 import AdminIndex from "@/pages/admin/index";
 import NotFound from "@/pages/not-found";
 
@@ -54,6 +55,7 @@ function Router() {
       <Route path="/guide" component={GuidePage} />
       <Route path="/ai-chat" component={AiChatPage} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
       <Route path="/auth/callback" component={AuthCallback} />
       <Route path="/cabinet" component={CabinetPage} />
       <Route path="/cabinet/sites/:id" component={SiteDetailPage} />

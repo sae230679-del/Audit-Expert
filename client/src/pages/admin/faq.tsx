@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Database } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { FaqItem } from "@shared/schema";
@@ -64,6 +64,20 @@ export default function AdminFaq() {
     },
   });
 
+  const seedMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/admin/faq/seed", {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/faq"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/faq"] });
+      toast({ title: "FAQ заполнен шаблонами (22 вопроса)" });
+    },
+    onError: () => {
+      toast({ title: "FAQ уже содержит вопросы", description: "Удалите существующие перед заполнением шаблонами", variant: "destructive" });
+    },
+  });
+
   const resetForm = () => {
     setFormData({ question: "", answer: "", sortOrder: 0, isActive: true });
     setEditingItem(null);
@@ -92,19 +106,35 @@ export default function AdminFaq() {
           <h1 className="text-2xl font-semibold">FAQ</h1>
           <p className="text-muted-foreground">Управление часто задаваемыми вопросами</p>
         </div>
-        <Dialog
-          open={isDialogOpen}
-          onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) resetForm();
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-faq">
-              <Plus className="h-4 w-4 mr-2" />
-              Добавить вопрос
+        <div className="flex items-center gap-2 flex-wrap">
+          {!faqItems?.length && (
+            <Button
+              variant="outline"
+              onClick={() => seedMutation.mutate()}
+              disabled={seedMutation.isPending}
+              data-testid="button-seed-faq"
+            >
+              {seedMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Database className="h-4 w-4 mr-2" />
+              )}
+              Заполнить шаблонами
             </Button>
-          </DialogTrigger>
+          )}
+          <Dialog
+            open={isDialogOpen}
+            onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (!open) resetForm();
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-faq">
+                <Plus className="h-4 w-4 mr-2" />
+                Добавить вопрос
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
@@ -162,7 +192,8 @@ export default function AdminFaq() {
               </Button>
             </div>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       {isLoading ? (

@@ -22,6 +22,7 @@ import AdminAnalyticsExpress from "./analytics-express";
 import ManagerDashboard from "./manager-dashboard";
 import LawyerDashboard from "./lawyer-dashboard";
 import AISettingsPage from "./ai-settings";
+import AdminNotifications from "./notifications";
 
 export default function AdminIndex() {
   const [location, setLocation] = useLocation();
@@ -63,6 +64,7 @@ export default function AdminIndex() {
         <Route path="/admin/manager" component={ManagerDashboard} />
         <Route path="/admin/lawyer" component={LawyerDashboard} />
         <Route path="/admin/ai-settings" component={AISettingsPage} />
+        <Route path="/admin/notifications" component={AdminNotifications} />
         <Route path="/admin/settings" component={AdminSettings} />
         <Route path="/admin/documents">{() => { window.location.href = "/admin/settings"; return null; }}</Route>
         <Route path="/admin/payments" component={AdminPayments} />

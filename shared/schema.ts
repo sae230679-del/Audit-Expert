@@ -144,6 +144,29 @@ export const siteSettings = pgTable("site_settings", {
   openaiModel: text("openai_model").default("gpt-4"),
   // Default AI provider for document generation
   defaultAiProvider: text("default_ai_provider").default("gigachat"), // gigachat, yandex, openai
+  // SMTP Email Settings
+  smtpEnabled: boolean("smtp_enabled").default(false),
+  smtpHost: text("smtp_host"),
+  smtpPort: integer("smtp_port").default(587),
+  smtpUser: text("smtp_user"),
+  smtpPassword: text("smtp_password"),
+  smtpFromName: text("smtp_from_name"),
+  smtpFromEmail: text("smtp_from_email"),
+  smtpEncryption: text("smtp_encryption").default("tls"), // none, ssl, tls
+  // Telegram group description
+  telegramGroupDescription: text("telegram_group_description"),
+  // Notification toggles (admin-level)
+  notifyEmailRegistration: boolean("notify_email_registration").default(true),
+  notifyEmailOrder: boolean("notify_email_order").default(true),
+  notifyEmailPayment: boolean("notify_email_payment").default(true),
+  notifyEmailReferral: boolean("notify_email_referral").default(true),
+  notifyEmailExpressReport: boolean("notify_email_express_report").default(true),
+  notifyEmailPasswordReset: boolean("notify_email_password_reset").default(true),
+  notifyTgRegistration: boolean("notify_tg_registration").default(true),
+  notifyTgOrder: boolean("notify_tg_order").default(true),
+  notifyTgPayment: boolean("notify_tg_payment").default(true),
+  notifyTgReferral: boolean("notify_tg_referral").default(true),
+  notifyTgExpressReport: boolean("notify_tg_express_report").default(true),
 });
 
 // Contact form messages
@@ -271,13 +294,28 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// User subscriptions - подписки на рассылки
+// User subscriptions - подписки на рассылки и настройки уведомлений
 export const userSubscriptions = pgTable("user_subscriptions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
-  emailNews: boolean("email_news").default(true), // подписка на email рассылку
-  emailPromo: boolean("email_promo").default(true), // промо-акции на email
-  inAppNotifications: boolean("in_app_notifications").default(true), // уведомления в ЛК
+  emailNews: boolean("email_news").default(true),
+  emailPromo: boolean("email_promo").default(true),
+  inAppNotifications: boolean("in_app_notifications").default(true),
+  emailOrders: boolean("email_orders").default(true),
+  emailPayments: boolean("email_payments").default(true),
+  emailReferrals: boolean("email_referrals").default(true),
+  emailAuditReports: boolean("email_audit_reports").default(true),
+  emailPasswordReset: boolean("email_password_reset").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Password resets - токены для восстановления пароля
+export const passwordResets = pgTable("password_resets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  tokenHash: text("token_hash").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -759,6 +797,12 @@ export const insertUserSubscriptionSchema = createInsertSchema(userSubscriptions
   createdAt: true,
 });
 
+export const insertPasswordResetSchema = createInsertSchema(passwordResets).omit({
+  id: true,
+  createdAt: true,
+  usedAt: true,
+});
+
 export const insertCommissionSchema = createInsertSchema(commissions).omit({
   id: true,
   createdAt: true,
@@ -945,6 +989,8 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertUserSubscription = z.infer<typeof insertUserSubscriptionSchema>;
 export type UserSubscription = typeof userSubscriptions.$inferSelect;
+export type InsertPasswordReset = z.infer<typeof insertPasswordResetSchema>;
+export type PasswordReset = typeof passwordResets.$inferSelect;
 export type InsertCommission = z.infer<typeof insertCommissionSchema>;
 export type Commission = typeof commissions.$inferSelect;
 export type UpdateUserProfile = z.infer<typeof updateUserProfileSchema>;
