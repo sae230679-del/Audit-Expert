@@ -1125,8 +1125,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const settings = await storage.updateSettings(req.body);
       res.json(settings);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to update settings" });
+    } catch (error: any) {
+      console.error("[SETTINGS] Update error:", error?.message, error?.code);
+      res.status(500).json({ error: "Failed to update settings", details: error?.message });
     }
   });
 
