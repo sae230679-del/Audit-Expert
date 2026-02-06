@@ -8,7 +8,6 @@ set -e
 APP_DIR="/var/www/help152fz.ru"
 PUBLIC_HTML="/home/admin/web/help152fz.ru/public_html"
 APP_NAME="help152fz"
-DB_URL="postgresql://help152fz_user:H3lp152Fz2026sec@localhost:5432/help152fz"
 BACKUP_DIR="/var/www/help152fz.ru/backups"
 
 echo "=== Help152FZ Deploy ==="
@@ -19,7 +18,11 @@ cd $APP_DIR
 echo "1. Создание бэкапа БД перед деплоем..."
 mkdir -p $BACKUP_DIR
 BACKUP_FILE="$BACKUP_DIR/pre_deploy_$(date +%Y%m%d_%H%M%S).sql"
-PGPASSWORD=H3lp152Fz2026sec pg_dump -h localhost -U help152fz_user -d help152fz > "$BACKUP_FILE" 2>/dev/null && echo "   Бэкап сохранён: $BACKUP_FILE" || echo "   ВНИМАНИЕ: Бэкап не удался, продолжаем..."
+if [ -n "$DATABASE_URL" ]; then
+  pg_dump "$DATABASE_URL" > "$BACKUP_FILE" 2>/dev/null && echo "   Бэкап сохранён: $BACKUP_FILE" || echo "   ВНИМАНИЕ: Бэкап не удался, продолжаем..."
+else
+  echo "   DATABASE_URL не задан, бэкап пропущен"
+fi
 
 echo "2. Обновление кода с GitHub..."
 git stash 2>/dev/null || true
@@ -40,7 +43,7 @@ echo "   ВАЖНО: Если появится вопрос о truncate — ВС
 npm run db:push || echo "   DB push пропущен или завершился с ошибкой"
 
 echo "7. Перезапуск приложения..."
-pm2 restart $APP_NAME
+pm2 restart $APP_NAME 2>/dev/null || pm2 start dist/index.cjs --name $APP_NAME
 
 echo "8. Проверка статуса..."
 pm2 status $APP_NAME
@@ -51,4 +54,4 @@ find $BACKUP_DIR -name "pre_deploy_*.sql" -mtime +7 -delete 2>/dev/null || true
 echo ""
 echo "=== Деплой завершён! ==="
 echo "Проверить логи: pm2 logs $APP_NAME --lines 20"
-echo "Восстановить из бэкапа: PGPASSWORD=H3lp152Fz2026sec psql -h localhost -U help152fz_user -d help152fz < $BACKUP_FILE"
+echo "Проверить сайт: curl -s -o /dev/null -w '%{http_code}' http://localhost:5000"
