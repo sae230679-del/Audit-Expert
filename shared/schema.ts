@@ -167,6 +167,29 @@ export const siteSettings = pgTable("site_settings", {
   notifyTgPayment: boolean("notify_tg_payment").default(true),
   notifyTgReferral: boolean("notify_tg_referral").default(true),
   notifyTgExpressReport: boolean("notify_tg_express_report").default(true),
+  // AI Consultant (public chat)
+  aiConsultantEnabled: boolean("ai_consultant_enabled").default(false),
+  aiConsultantProvider: text("ai_consultant_provider").default("gigachat"),
+  aiConsultantSystemPrompt: text("ai_consultant_system_prompt"),
+  aiConsultantWelcomeMessage: text("ai_consultant_welcome_message"),
+  aiConsultantMaxTokens: integer("ai_consultant_max_tokens").default(1024),
+  // Guide / Справочник
+  guideEnabled: boolean("guide_enabled").default(false),
+  // Yandex Webmaster
+  yandexWebmasterEnabled: boolean("yandex_webmaster_enabled").default(false),
+  yandexWebmasterCode: text("yandex_webmaster_code"),
+  // Yandex Metrika
+  yandexMetrikaEnabled: boolean("yandex_metrika_enabled").default(false),
+  yandexMetrikaId: text("yandex_metrika_id"),
+  // Online consultant widget (Jivo, Tawk, etc.)
+  onlineConsultantEnabled: boolean("online_consultant_enabled").default(false),
+  onlineConsultantName: text("online_consultant_name"),
+  onlineConsultantCode: text("online_consultant_code"),
+  // Marquiz widget
+  marquizEnabled: boolean("marquiz_enabled").default(false),
+  marquizCode: text("marquiz_code"),
+  // Hints / tooltips on site
+  hintsEnabled: boolean("hints_enabled").default(true),
 });
 
 // Contact form messages

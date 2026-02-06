@@ -20,6 +20,7 @@ import AiChatPage from "@/pages/ai-chat";
 import ResetPasswordPage from "@/pages/reset-password";
 import AdminIndex from "@/pages/admin/index";
 import NotFound from "@/pages/not-found";
+import { ExternalWidgets } from "@/components/external-widgets";
 
 function MaintenancePage({ message }: { message?: string }) {
   return (
@@ -100,6 +101,7 @@ function App() {
       <ThemeProvider defaultTheme="dark" storageKey="help152fz-theme">
         <TooltipProvider>
           <Toaster />
+          <ExternalWidgets />
           <AppContent />
         </TooltipProvider>
       </ThemeProvider>

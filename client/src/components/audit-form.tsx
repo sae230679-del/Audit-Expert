@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/select";
 import { Search, Shield } from "lucide-react";
 import { Link } from "wouter";
+import { HintTooltip } from "@/components/hint-tooltip";
+import { useQuery } from "@tanstack/react-query";
 
 const siteTypes = [
   { value: "landing", label: "Лендинг" },
@@ -41,6 +43,11 @@ interface AuditFormProps {
 }
 
 export function AuditForm({ onSubmit, isLoading }: AuditFormProps) {
+  const { data: publicSettings } = useQuery<{ hintsEnabled?: boolean }>({
+    queryKey: ["/api/settings/public"],
+  });
+  const showHints = publicSettings?.hintsEnabled !== false;
+
   const form = useForm<AuditFormData>({
     resolver: zodResolver(auditFormSchema),
     defaultValues: {
@@ -75,7 +82,10 @@ export function AuditForm({ onSubmit, isLoading }: AuditFormProps) {
               name="siteUrl"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>URL сайта</FormLabel>
+                  <FormLabel className="flex items-center gap-1.5">
+                    URL сайта
+                    {showHints && <HintTooltip text="Введите адрес вашего сайта без http:// — например, mysite.ru. Мы проверим наличие SSL-сертификата, политики конфиденциальности и другие требования закона." />}
+                  </FormLabel>
                   <FormControl>
                     <Input
                       placeholder="example.com или www.example.com"
@@ -93,7 +103,10 @@ export function AuditForm({ onSubmit, isLoading }: AuditFormProps) {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email для получения отчета</FormLabel>
+                  <FormLabel className="flex items-center gap-1.5">
+                    Email для получения отчета
+                    {showHints && <HintTooltip text="На этот адрес мы отправим детальный отчёт по результатам проверки. Если у вас ещё нет аккаунта, мы создадим его автоматически." />}
+                  </FormLabel>
                   <FormControl>
                     <Input
                       type="email"
@@ -112,7 +125,10 @@ export function AuditForm({ onSubmit, isLoading }: AuditFormProps) {
               name="siteType"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Тип сайта</FormLabel>
+                  <FormLabel className="flex items-center gap-1.5">
+                    Тип сайта
+                    {showHints && <HintTooltip text="Выберите тип, наиболее соответствующий вашему сайту. От этого зависит набор проверяемых критериев и рекомендации." />}
+                  </FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}

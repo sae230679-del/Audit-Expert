@@ -25,9 +25,12 @@ import {
   type AdminLog, type InsertAdminLog,
   type Document, type InsertDocument,
   type PasswordReset, type InsertPasswordReset,
+  type GuideSection, type InsertGuideSection,
+  type GuideTopic, type InsertGuideTopic,
+  type GuideArticle, type InsertGuideArticle,
   users, packages, faqItems, siteSettings, contactMessages, orders, menuItems, cases, promoCodes, referralSettings, referrals, payouts, notifications, userSubscriptions, commissions,
   userSites, siteAudits, auditFindings, subscriptionPlans, siteSubscriptions, tickets, ticketMessages, adminLogs, documents,
-  passwordResets
+  passwordResets, guideSections, guideTopics, guideArticles
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, sql, inArray } from "drizzle-orm";
@@ -864,6 +867,86 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDocument(id: string): Promise<void> {
     await db.delete(documents).where(eq(documents.id, id));
+  }
+
+  // Guide Sections
+  async getGuideSections(): Promise<GuideSection[]> {
+    return db.select().from(guideSections).orderBy(guideSections.sortOrder);
+  }
+
+  async getGuideSection(id: number): Promise<GuideSection | undefined> {
+    const [section] = await db.select().from(guideSections).where(eq(guideSections.id, id));
+    return section || undefined;
+  }
+
+  async createGuideSection(data: InsertGuideSection): Promise<GuideSection> {
+    const [created] = await db.insert(guideSections).values(data).returning();
+    return created;
+  }
+
+  async updateGuideSection(id: number, data: Partial<InsertGuideSection>): Promise<GuideSection | undefined> {
+    const [updated] = await db.update(guideSections).set({ ...data, updatedAt: new Date() }).where(eq(guideSections.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteGuideSection(id: number): Promise<void> {
+    await db.delete(guideTopics).where(eq(guideTopics.sectionId, id));
+    await db.delete(guideSections).where(eq(guideSections.id, id));
+  }
+
+  // Guide Topics
+  async getGuideTopics(sectionId?: number): Promise<GuideTopic[]> {
+    if (sectionId) {
+      return db.select().from(guideTopics).where(eq(guideTopics.sectionId, sectionId)).orderBy(guideTopics.sortOrder);
+    }
+    return db.select().from(guideTopics).orderBy(guideTopics.sortOrder);
+  }
+
+  async getGuideTopic(id: number): Promise<GuideTopic | undefined> {
+    const [topic] = await db.select().from(guideTopics).where(eq(guideTopics.id, id));
+    return topic || undefined;
+  }
+
+  async createGuideTopic(data: InsertGuideTopic): Promise<GuideTopic> {
+    const [created] = await db.insert(guideTopics).values(data).returning();
+    return created;
+  }
+
+  async updateGuideTopic(id: number, data: Partial<InsertGuideTopic>): Promise<GuideTopic | undefined> {
+    const [updated] = await db.update(guideTopics).set({ ...data, updatedAt: new Date() }).where(eq(guideTopics.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteGuideTopic(id: number): Promise<void> {
+    await db.delete(guideArticles).where(eq(guideArticles.topicId, id));
+    await db.delete(guideTopics).where(eq(guideTopics.id, id));
+  }
+
+  // Guide Articles
+  async getGuideArticles(topicId?: number): Promise<GuideArticle[]> {
+    if (topicId) {
+      return db.select().from(guideArticles).where(eq(guideArticles.topicId, topicId)).orderBy(desc(guideArticles.createdAt));
+    }
+    return db.select().from(guideArticles).orderBy(desc(guideArticles.createdAt));
+  }
+
+  async getGuideArticle(id: number): Promise<GuideArticle | undefined> {
+    const [article] = await db.select().from(guideArticles).where(eq(guideArticles.id, id));
+    return article || undefined;
+  }
+
+  async createGuideArticle(data: InsertGuideArticle): Promise<GuideArticle> {
+    const [created] = await db.insert(guideArticles).values(data).returning();
+    return created;
+  }
+
+  async updateGuideArticle(id: number, data: Partial<InsertGuideArticle>): Promise<GuideArticle | undefined> {
+    const [updated] = await db.update(guideArticles).set({ ...data, updatedAt: new Date() }).where(eq(guideArticles.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteGuideArticle(id: number): Promise<void> {
+    await db.delete(guideArticles).where(eq(guideArticles.id, id));
   }
 }
 

@@ -202,6 +202,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         maintenanceMode: settings.maintenanceMode || false,
         maintenanceMessage: settings.maintenanceMessage,
         monitoringComingSoon: settings.monitoringComingSoon ?? true,
+        casesPageEnabled: settings.casesPageEnabled ?? true,
+        aiConsultantEnabled: settings.aiConsultantEnabled || false,
+        guideEnabled: settings.guideEnabled || false,
+        yandexMetrikaEnabled: settings.yandexMetrikaEnabled || false,
+        yandexMetrikaId: settings.yandexMetrikaId,
+        yandexWebmasterEnabled: settings.yandexWebmasterEnabled || false,
+        yandexWebmasterCode: settings.yandexWebmasterCode,
+        onlineConsultantEnabled: settings.onlineConsultantEnabled || false,
+        onlineConsultantCode: settings.onlineConsultantCode,
+        marquizEnabled: settings.marquizEnabled || false,
+        marquizCode: settings.marquizCode,
+        hintsEnabled: settings.hintsEnabled ?? true,
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch settings" });
@@ -1251,6 +1263,214 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     } catch (error) {
       res.status(500).json({ error: "Failed to test GigaChat connection" });
+    }
+  });
+
+  // Guide CRUD - Sections
+  app.get("/api/admin/guide/sections", verifyAdmin, async (req, res) => {
+    try {
+      const sections = await storage.getGuideSections();
+      res.json(sections);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch guide sections" });
+    }
+  });
+
+  app.post("/api/admin/guide/sections", verifySuperAdmin, async (req, res) => {
+    try {
+      const section = await storage.createGuideSection(req.body);
+      res.json(section);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create guide section" });
+    }
+  });
+
+  app.patch("/api/admin/guide/sections/:id", verifySuperAdmin, async (req, res) => {
+    try {
+      const section = await storage.updateGuideSection(parseInt(req.params.id), req.body);
+      if (!section) return res.status(404).json({ error: "Section not found" });
+      res.json(section);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update guide section" });
+    }
+  });
+
+  app.delete("/api/admin/guide/sections/:id", verifySuperAdmin, async (req, res) => {
+    try {
+      await storage.deleteGuideSection(parseInt(req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete guide section" });
+    }
+  });
+
+  // Guide CRUD - Topics
+  app.get("/api/admin/guide/topics", verifyAdmin, async (req, res) => {
+    try {
+      const sectionId = req.query.sectionId ? parseInt(req.query.sectionId as string) : undefined;
+      const topics = await storage.getGuideTopics(sectionId);
+      res.json(topics);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch guide topics" });
+    }
+  });
+
+  app.post("/api/admin/guide/topics", verifySuperAdmin, async (req, res) => {
+    try {
+      const topic = await storage.createGuideTopic(req.body);
+      res.json(topic);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create guide topic" });
+    }
+  });
+
+  app.patch("/api/admin/guide/topics/:id", verifySuperAdmin, async (req, res) => {
+    try {
+      const topic = await storage.updateGuideTopic(parseInt(req.params.id), req.body);
+      if (!topic) return res.status(404).json({ error: "Topic not found" });
+      res.json(topic);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update guide topic" });
+    }
+  });
+
+  app.delete("/api/admin/guide/topics/:id", verifySuperAdmin, async (req, res) => {
+    try {
+      await storage.deleteGuideTopic(parseInt(req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete guide topic" });
+    }
+  });
+
+  // Guide CRUD - Articles
+  app.get("/api/admin/guide/articles", verifyAdmin, async (req, res) => {
+    try {
+      const topicId = req.query.topicId ? parseInt(req.query.topicId as string) : undefined;
+      const articles = await storage.getGuideArticles(topicId);
+      res.json(articles);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch guide articles" });
+    }
+  });
+
+  app.post("/api/admin/guide/articles", verifySuperAdmin, async (req, res) => {
+    try {
+      const article = await storage.createGuideArticle(req.body);
+      res.json(article);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create guide article" });
+    }
+  });
+
+  app.patch("/api/admin/guide/articles/:id", verifySuperAdmin, async (req, res) => {
+    try {
+      const article = await storage.updateGuideArticle(parseInt(req.params.id), req.body);
+      if (!article) return res.status(404).json({ error: "Article not found" });
+      res.json(article);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update guide article" });
+    }
+  });
+
+  app.delete("/api/admin/guide/articles/:id", verifySuperAdmin, async (req, res) => {
+    try {
+      await storage.deleteGuideArticle(parseInt(req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete guide article" });
+    }
+  });
+
+  // Public guide API
+  app.get("/api/guide/sections", async (req, res) => {
+    try {
+      const settings = await storage.getSettings();
+      if (!settings?.guideEnabled) return res.json([]);
+      const sections = await storage.getGuideSections();
+      res.json(sections.filter(s => s.isVisible));
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch guide" });
+    }
+  });
+
+  app.get("/api/guide/topics/:sectionId", async (req, res) => {
+    try {
+      const topics = await storage.getGuideTopics(parseInt(req.params.sectionId));
+      res.json(topics.filter(t => t.isPublished));
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch topics" });
+    }
+  });
+
+  app.get("/api/guide/articles/:topicId", async (req, res) => {
+    try {
+      const articles = await storage.getGuideArticles(parseInt(req.params.topicId));
+      res.json(articles.filter(a => a.status === "published"));
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch articles" });
+    }
+  });
+
+  // AI Consultant settings (separate from AI provider settings)
+  app.get("/api/admin/ai-consultant/settings", verifySuperAdmin, async (req, res) => {
+    try {
+      const settings = await storage.getSettings();
+      res.json({
+        aiConsultantEnabled: settings?.aiConsultantEnabled || false,
+        aiConsultantProvider: settings?.aiConsultantProvider || "gigachat",
+        aiConsultantSystemPrompt: settings?.aiConsultantSystemPrompt || "",
+        aiConsultantWelcomeMessage: settings?.aiConsultantWelcomeMessage || "",
+        aiConsultantMaxTokens: settings?.aiConsultantMaxTokens || 1024,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch AI consultant settings" });
+    }
+  });
+
+  app.put("/api/admin/ai-consultant/settings", verifySuperAdmin, async (req, res) => {
+    try {
+      const { aiConsultantEnabled, aiConsultantProvider, aiConsultantSystemPrompt, aiConsultantWelcomeMessage, aiConsultantMaxTokens } = req.body;
+      const updated = await storage.updateSettings({
+        aiConsultantEnabled,
+        aiConsultantProvider,
+        aiConsultantSystemPrompt,
+        aiConsultantWelcomeMessage,
+        aiConsultantMaxTokens,
+      });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update AI consultant settings" });
+    }
+  });
+
+  // Integrations & Widgets settings
+  app.get("/api/admin/integrations/settings", verifySuperAdmin, async (req, res) => {
+    try {
+      const settings = await storage.getSettings();
+      res.json({
+        yandexWebmasterEnabled: settings?.yandexWebmasterEnabled || false,
+        yandexWebmasterCode: settings?.yandexWebmasterCode || "",
+        yandexMetrikaEnabled: settings?.yandexMetrikaEnabled || false,
+        yandexMetrikaId: settings?.yandexMetrikaId || "",
+        onlineConsultantEnabled: settings?.onlineConsultantEnabled || false,
+        onlineConsultantName: settings?.onlineConsultantName || "",
+        onlineConsultantCode: settings?.onlineConsultantCode || "",
+        marquizEnabled: settings?.marquizEnabled || false,
+        marquizCode: settings?.marquizCode || "",
+        hintsEnabled: settings?.hintsEnabled ?? true,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch integrations settings" });
+    }
+  });
+
+  app.put("/api/admin/integrations/settings", verifySuperAdmin, async (req, res) => {
+    try {
+      const updated = await storage.updateSettings(req.body);
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update integrations settings" });
     }
   });
 

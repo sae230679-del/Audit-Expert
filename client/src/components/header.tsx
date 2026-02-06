@@ -1,10 +1,9 @@
 import { useState, useMemo } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Shield, User, LogOut } from "lucide-react";
+import { Menu, X, Shield, User, LogOut, Sparkles, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useQuery } from "@tanstack/react-query";
-import type { SiteSettings } from "@shared/schema";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,16 +12,24 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+interface PublicSettings {
+  casesPageEnabled?: boolean;
+  aiConsultantEnabled?: boolean;
+  guideEnabled?: boolean;
+  [key: string]: any;
+}
+
 interface MenuItem {
   label: string;
   href: string;
+  icon?: any;
 }
 
 export function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const [location, setLocation] = useLocation();
 
-  const { data: settings } = useQuery<SiteSettings>({
+  const { data: settings } = useQuery<PublicSettings>({
     queryKey: ["/api/settings/public"],
   });
 
@@ -50,6 +57,8 @@ export function Header() {
     { label: "Услуги", href: "#packages" },
     ...(settings?.casesPageEnabled !== false ? [{ label: "Кейсы", href: "/cases" }] : []),
     { label: "FAQ", href: "#faq" },
+    ...(settings?.guideEnabled ? [{ label: "Справочник", href: "/guide", icon: BookOpen }] : []),
+    ...(settings?.aiConsultantEnabled ? [{ label: "ИИ-Консультант", href: "/ai-chat", icon: Sparkles }] : []),
     { label: "Контакты", href: "#contacts" },
   ];
 

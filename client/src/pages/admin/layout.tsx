@@ -37,6 +37,7 @@ import {
   Globe,
   Mail,
   Sparkles,
+  BookOpen,
   BarChart3,
   ClipboardList,
   Scale,
@@ -44,6 +45,7 @@ import {
   Wallet,
   Home,
   Bell,
+  Puzzle,
 } from "lucide-react";
 
 type RoleColor = "blue" | "green" | "purple" | "orange" | "red";
@@ -130,6 +132,7 @@ const menuSections: MenuSection[] = [
       { title: "Пакеты услуг", url: "/admin/packages", icon: Package },
       { title: "Кейсы", url: "/admin/cases", icon: Briefcase },
       { title: "FAQ", url: "/admin/faq", icon: HelpCircle },
+      { title: "Справочник", url: "/admin/guide", icon: BookOpen },
     ],
   },
   {
@@ -139,10 +142,12 @@ const menuSections: MenuSection[] = [
     items: [
       { title: "Аналитика", url: "/admin/analytics", icon: BarChart3 },
       { title: "Настройки ИИ", url: "/admin/ai-settings", icon: Bot },
+      { title: "ИИ-Консультант", url: "/admin/ai-consultant", icon: Sparkles },
       { title: "Промокоды", url: "/admin/promo-codes", icon: Ticket },
       { title: "Рефералы", url: "/admin/referrals", icon: Share2 },
       { title: "Платежи", url: "/admin/payments", icon: Wallet },
       { title: "Уведомления", url: "/admin/notifications", icon: Bell },
+      { title: "Интеграции", url: "/admin/integrations", icon: Puzzle },
       { title: "Настройки сайта", url: "/admin/settings", icon: Settings },
     ],
   },
