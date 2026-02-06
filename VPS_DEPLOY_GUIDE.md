@@ -889,6 +889,90 @@ git log --oneline origin/main -1  # GitHub
 
 ---
 
+### 9.25. GitHub PUSH_REJECTED — remote has commits not in local
+
+**Ошибка:** `The push was rejected by the remote. This is usually because the remote has commits that aren't in the local repository.`
+
+**Причина:** На GitHub есть коммиты, которых нет локально (например, кто-то коммитил через GitHub UI).
+
+**Решение:**
+```bash
+# Вариант 1: Принудительный push (перезаписать GitHub локальной версией)
+git push --force origin main
+
+# Вариант 2: Сначала подтянуть (если нужно сохранить GitHub-коммиты)
+git pull --rebase origin main
+git push origin main
+```
+
+**Важно:** `--force` перезапишет историю на GitHub. Все коммиты, которые были только на GitHub, будут потеряны.
+
+---
+
+### 9.26. GitHub GH001: Large files detected (файл > 100 МБ)
+
+**Ошибка:** `remote: error: File attached_assets/backup_help152fz_1770331209692.zip is 110.52 MB; this exceeds GitHub's file size limit of 100.00 MB`
+
+**Причина:** В коммитах есть файл больше 100 МБ — GitHub не принимает такие файлы.
+
+**Решение (пошагово):**
+
+**Шаг 1:** Установить git-filter-repo:
+```bash
+pip install git-filter-repo
+```
+
+**Шаг 2:** Удалить большой файл из всей истории Git:
+```bash
+git filter-repo --invert-paths --path attached_assets/backup_help152fz_1770331209692.zip --force
+```
+
+**Шаг 3:** Восстановить remote (filter-repo удаляет его):
+```bash
+git remote add origin https://github.com/sae230679-del/Audit-Expert.git 2>/dev/null
+git remote set-url origin https://github.com/sae230679-del/Audit-Expert.git
+```
+
+**Шаг 4:** Принудительно отправить:
+```bash
+git push --force origin main
+```
+
+**Шаг 5:** Добавить файл в .gitignore (чтобы не попал снова):
+```bash
+echo "attached_assets/backup_help152fz_1770331209692.zip" >> .gitignore
+git add .gitignore && git commit -m "Ignore large backup file" && git push origin main
+```
+
+**Важно:**
+- `git filter-branch` может **НЕ** полностью удалить файл — предпочитать `git filter-repo`
+- Проверить **точное** имя файла (например, `1770331209692` vs `170331209692` — одна цифра!)
+- После filter-repo нужно заново добавить remote
+
+---
+
+### 9.27. Добавление функциональности «В разработке» (monitoringComingSoon)
+
+**Описание:** Функция-заглушка для временного скрытия раздела мониторинга.
+
+**Изменения:**
+1. `shared/schema.ts` — добавлено поле `monitoringComingSoon: boolean("monitoring_coming_soon").default(true)`
+2. `server/routes.ts` — поле включено в `/api/settings/public` (с дефолтом `true` при отсутствии настроек)
+3. `client/src/pages/site-detail.tsx` — показывает «В разработке» вместо формы подписки
+4. `client/src/pages/admin/settings.tsx` — переключатель в панели администратора
+
+**Миграция БД:**
+```sql
+ALTER TABLE "site_settings" ADD COLUMN "monitoring_coming_soon" boolean DEFAULT true;
+```
+
+**Или через Drizzle:**
+```bash
+cd /var/www/help152fz.ru && npm run db:push
+```
+
+---
+
 ## 10. Команды диагностики
 
 ```bash
@@ -1025,3 +1109,10 @@ cd /var/www/help152fz.ru && git pull origin main && npm install && npm run build
 - SSL сертификат Let's Encrypt получен (действует до 06.05.2026)
 - Nginx конфиги разделены: help152fz.ru.conf (HTTP→HTTPS редирект) + help152fz.ru.ssl.conf (HTTPS proxy)
 - HTTPS работает: nginx -t successful, systemctl reload nginx OK
+
+### Сессия 06.02.2026
+- Добавлена функция «В разработке» (monitoringComingSoon) — заглушка для мониторинга
+- Миграция БД: ALTER TABLE site_settings ADD COLUMN monitoring_coming_soon boolean DEFAULT true
+- **РЕШЕНО**: GitHub PUSH_REJECTED — использован `git push --force origin main`
+- **РЕШЕНО**: GitHub GH001 Large File (110 МБ) — backup_help152fz_1770331209692.zip блокировал push. Удалён из истории через `git filter-repo`. Важно: имя файла отличалось на 1 цифру (1770... vs 170...)
+- Деплой на VPS: git pull → npm install → npm run build → npm run db:push → pm2 restart
