@@ -175,6 +175,14 @@ Note: The справочник (guide) is internal-only for AI document analysis
 - **VPS**: Ubuntu 24.04 with Hestia Panel, deploy via GitHub → `git pull` → `npm install` → `npm run build` → `pm2 restart`
 
 ### Recent Changes (2026-02-06)
+- **GigaChat OAuth**: Исправлен RqUID на UUID4 формат (требование Sber API)
+- **GigaChat expires_at**: Исправлена обработка — Сбер возвращает миллисекунды, не секунды
+- **GigaChat rejectUnauthorized**: Отключена проверка SSL для сертификатов НУЦ Минцифры (всегда, не только development)
+- **GigaChat диагностика**: Добавлена детальная обработка HTTP ошибок (401 сброс токена, логирование)
+- **JWT авторизация**: Все 40+ маршрутов переведены на русские сообщения с кодами (TOKEN_EXPIRED/INVALID_TOKEN/NO_TOKEN)
+- **JWT срок жизни**: Увеличен до 7 дней для предотвращения частых истечений на VPS
+- **verifyUser middleware**: Создан единый middleware для пользовательских маршрутов
+- **queryClient**: Глобальная обработка 401 с очисткой сессии и перенаправлением на логин
 - Added AI Consultant admin page with provider selection, system prompt, test functionality
 - Added Knowledge Base (справочник) admin page with hierarchical management
 - Added External Integrations admin page (Yandex Metrika, Webmaster, consultants, Marquiz)

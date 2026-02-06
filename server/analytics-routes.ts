@@ -13,7 +13,7 @@ const router = Router();
 function verifyAdmin(req: any, res: any, next: any) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Unauthorized" });
+    return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
   }
 
   try {
@@ -24,8 +24,11 @@ function verifyAdmin(req: any, res: any, next: any) {
     }
     req.user = decoded;
     next();
-  } catch {
-    return res.status(401).json({ error: "Invalid token" });
+  } catch (err: any) {
+    if (err?.name === "TokenExpiredError") {
+      return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+    }
+    return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
   }
 }
 

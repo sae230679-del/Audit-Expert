@@ -7,6 +7,7 @@
 import https from "https";
 import fs from "fs";
 import path from "path";
+import { randomUUID } from "crypto";
 import { guideKnowledgeService } from "./guide-knowledge-service";
 import { storage } from "./storage";
 
@@ -23,9 +24,6 @@ export function getCheatsheet(): string {
     return "";
   }
 }
-
-const isDevelopment = process.env.NODE_ENV !== "production";
-
 
 // Кэш токенов
 let cachedGigaChatToken: { token: string; expiresAt: number } | null = null;
@@ -232,7 +230,7 @@ async function getGigaChatAccessToken(apiKey: string, scope?: string): Promise<s
     const gigachatScope = scope || "GIGACHAT_API_PERS";
     const data = `scope=${gigachatScope}`;
 
-    const rquid = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+    const rquid = randomUUID();
 
     const options: https.RequestOptions = {
       hostname: "ngw.devices.sberbank.ru",
@@ -253,26 +251,32 @@ async function getGigaChatAccessToken(apiKey: string, scope?: string): Promise<s
       res.on("data", (chunk) => (body += chunk));
       res.on("end", () => {
         try {
+          if (res.statusCode && res.statusCode >= 400) {
+            console.error(`[CONSULTATION-AI] GigaChat OAuth HTTP ${res.statusCode}: ${body.slice(0, 300)}`);
+            resolve(null);
+            return;
+          }
           const result = JSON.parse(body);
           if (result.access_token) {
             cachedGigaChatToken = {
               token: result.access_token,
-              expiresAt: Date.now() + (result.expires_at ? result.expires_at * 1000 - Date.now() - 60000 : 1800000),
+              expiresAt: result.expires_at ? result.expires_at - 60000 : Date.now() + 1740000,
             };
+            console.log("[CONSULTATION-AI] GigaChat OAuth токен получен успешно");
             resolve(result.access_token);
           } else {
-            console.error("[CONSULTATION-AI] GigaChat auth failed:", body);
+            console.error("[CONSULTATION-AI] GigaChat OAuth ответ без токена:", body.slice(0, 200));
             resolve(null);
           }
         } catch (e) {
-          console.error("[CONSULTATION-AI] GigaChat auth parse error:", e);
+          console.error("[CONSULTATION-AI] GigaChat OAuth ошибка парсинга:", body.slice(0, 200));
           resolve(null);
         }
       });
     });
 
     req.on("error", (e) => {
-      console.error("[CONSULTATION-AI] GigaChat auth error:", e);
+      console.error("[CONSULTATION-AI] GigaChat OAuth ошибка сети:", e.message);
       resolve(null);
     });
 
@@ -319,23 +323,31 @@ async function callGigaChat(
       res.on("data", (chunk) => (body += chunk));
       res.on("end", () => {
         try {
+          if (res.statusCode && res.statusCode >= 400) {
+            console.error(`[CONSULTATION-AI] GigaChat API HTTP ${res.statusCode}: ${body.slice(0, 300)}`);
+            if (res.statusCode === 401) {
+              cachedGigaChatToken = null;
+            }
+            resolve(null);
+            return;
+          }
           const result = JSON.parse(body);
           if (result.choices && result.choices[0]) {
             console.log("[CONSULTATION-AI] GigaChat success");
             resolve(result.choices[0].message?.content || null);
           } else {
-            console.error("[CONSULTATION-AI] GigaChat response error:", body);
+            console.error("[CONSULTATION-AI] GigaChat API ответ без choices:", body.slice(0, 300));
             resolve(null);
           }
         } catch (e) {
-          console.error("[CONSULTATION-AI] GigaChat parse error:", e);
+          console.error("[CONSULTATION-AI] GigaChat ошибка парсинга:", body.slice(0, 200));
           resolve(null);
         }
       });
     });
 
     req.on("error", (e) => {
-      console.error("[CONSULTATION-AI] GigaChat request error:", e);
+      console.error("[CONSULTATION-AI] GigaChat ошибка сети:", e.message);
       resolve(null);
     });
 

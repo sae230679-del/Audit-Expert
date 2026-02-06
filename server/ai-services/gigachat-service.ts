@@ -1,4 +1,5 @@
 import https from "https";
+import { randomUUID } from "crypto";
 import { storage } from "../storage";
 
 interface GigaChatConfig {
@@ -50,7 +51,7 @@ async function getAccessToken(config: GigaChatConfig): Promise<string> {
         "Content-Type": "application/x-www-form-urlencoded",
         "Accept": "application/json",
         "Authorization": `Basic ${config.credentials}`,
-        "RqUID": `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+        "RqUID": randomUUID(),
       },
       rejectUnauthorized: false,
     };
@@ -60,22 +61,31 @@ async function getAccessToken(config: GigaChatConfig): Promise<string> {
       res.on("data", (chunk) => { data += chunk; });
       res.on("end", () => {
         try {
+          if (res.statusCode && res.statusCode >= 400) {
+            console.error(`[GigaChat] OAuth вернул HTTP ${res.statusCode}: ${data}`);
+            reject(new Error(`GigaChat OAuth: HTTP ${res.statusCode}. Проверьте Authorization Key и scope. Ответ: ${data.slice(0, 200)}`));
+            return;
+          }
           const response = JSON.parse(data);
           if (response.access_token) {
             accessToken = response.access_token;
-            tokenExpiresAt = Date.now() + (response.expires_in || 1800) * 1000;
+            tokenExpiresAt = response.expires_at ? response.expires_at - 60000 : Date.now() + 1740000;
+            console.log("[GigaChat] OAuth токен получен успешно, истекает:", new Date(tokenExpiresAt).toISOString());
             resolve(accessToken!);
           } else {
-            reject(new Error(`OAuth failed: ${JSON.stringify(response)}`));
+            console.error("[GigaChat] OAuth ответ без access_token:", data);
+            reject(new Error(`GigaChat OAuth: токен не получен. Ответ: ${data.slice(0, 200)}`));
           }
         } catch (e) {
-          reject(new Error(`Failed to parse OAuth response: ${data}`));
+          console.error("[GigaChat] Ошибка парсинга OAuth ответа:", data);
+          reject(new Error(`GigaChat OAuth: некорректный ответ сервера. Данные: ${data.slice(0, 200)}`));
         }
       });
     });
 
     req.on("error", (e) => {
-      reject(new Error(`OAuth request failed: ${e.message}`));
+      console.error("[GigaChat] Ошибка сети OAuth:", e.message);
+      reject(new Error(`GigaChat OAuth: ошибка сети — ${e.message}. Проверьте доступность ngw.devices.sberbank.ru:9443`));
     });
 
     req.write(postData);
@@ -136,20 +146,34 @@ export async function generateWithGigaChat(
       res.on("data", (chunk) => { data += chunk; });
       res.on("end", () => {
         try {
+          if (res.statusCode && res.statusCode >= 400) {
+            console.error(`[GigaChat] API вернул HTTP ${res.statusCode}: ${data.slice(0, 300)}`);
+            if (res.statusCode === 401) {
+              accessToken = null;
+              tokenExpiresAt = 0;
+              reject(new Error(`GigaChat API: авторизация отклонена (HTTP 401). Токен будет обновлён при следующем запросе.`));
+            } else {
+              reject(new Error(`GigaChat API: HTTP ${res.statusCode}. ${data.slice(0, 200)}`));
+            }
+            return;
+          }
           const response: GigaChatResponse = JSON.parse(data);
           if (response.choices && response.choices[0]?.message?.content) {
             resolve(response.choices[0].message.content);
           } else {
-            reject(new Error(`GigaChat response error: ${data}`));
+            console.error("[GigaChat] API ответ без choices:", data.slice(0, 300));
+            reject(new Error(`GigaChat: некорректный ответ API. ${data.slice(0, 200)}`));
           }
         } catch (e) {
-          reject(new Error(`Failed to parse GigaChat response: ${data}`));
+          console.error("[GigaChat] Ошибка парсинга ответа API:", data.slice(0, 300));
+          reject(new Error(`GigaChat: ошибка парсинга ответа. ${data.slice(0, 200)}`));
         }
       });
     });
 
     req.on("error", (e) => {
-      reject(new Error(`GigaChat request failed: ${e.message}`));
+      console.error("[GigaChat] Ошибка сети API:", e.message);
+      reject(new Error(`GigaChat API: ошибка сети — ${e.message}. Проверьте доступность gigachat.devices.sberbank.ru`));
     });
 
     req.write(postData);
@@ -197,25 +221,34 @@ export async function testGigaChatConnection(): Promise<{ success: boolean; mess
         res.on("data", (chunk) => { data += chunk; });
         res.on("end", () => {
           try {
+            if (res.statusCode && res.statusCode >= 400) {
+              console.error(`[GigaChat] Test API HTTP ${res.statusCode}: ${data.slice(0, 300)}`);
+              if (res.statusCode === 401) {
+                accessToken = null;
+                tokenExpiresAt = 0;
+              }
+              resolve({ success: false, message: `GigaChat API вернул HTTP ${res.statusCode}. ${data.slice(0, 150)}` });
+              return;
+            }
             const response = JSON.parse(data);
             if (response.data) {
               const models = response.data.map((m: any) => m.id);
               resolve({ 
                 success: true, 
-                message: "Подключение успешно установлено",
+                message: `Подключение успешно! Доступные модели: ${models.join(", ")}`,
                 models 
               });
             } else {
-              resolve({ success: false, message: `Ошибка: ${data}` });
+              resolve({ success: false, message: `Некорректный ответ GigaChat API: ${data.slice(0, 150)}` });
             }
           } catch (e) {
-            resolve({ success: false, message: `Ошибка разбора ответа: ${data}` });
+            resolve({ success: false, message: `Ошибка разбора ответа GigaChat: ${data.slice(0, 150)}` });
           }
         });
       });
 
       req.on("error", (e) => {
-        resolve({ success: false, message: `Ошибка подключения: ${e.message}` });
+        resolve({ success: false, message: `Ошибка сети: ${e.message}. Проверьте доступность gigachat.devices.sberbank.ru:443` });
       });
 
       req.end();

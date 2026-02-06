@@ -106,6 +106,25 @@ function verifySuperAdmin(req: any, res: any, next: any) {
   }
 }
 
+function verifyUser(req: any, res: any, next: any) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
+  }
+
+  try {
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, JWT_SECRET!) as any;
+    req.user = decoded;
+    next();
+  } catch (err: any) {
+    if (err?.name === "TokenExpiredError") {
+      return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+    }
+    return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
+  }
+}
+
 import { registerDocumentRoutes } from "./document-routes";
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<void> {
@@ -2237,7 +2256,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/auth/me", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2268,8 +2287,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         organizationInn: user.organizationInn,
         siteUrl: user.siteUrl,
       });
-    } catch {
-      return res.status(401).json({ error: "Invalid token" });
+    } catch (err: any) {
+      if (err?.name === "TokenExpiredError") {
+        return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+      }
+      return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
     }
   });
 
@@ -2277,7 +2299,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/user/orders", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2285,8 +2307,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const decoded = jwt.verify(token, JWT_SECRET) as any;
       const orders = await storage.getOrdersByUserId(decoded.id);
       res.json(orders);
-    } catch {
-      return res.status(401).json({ error: "Invalid token" });
+    } catch (err: any) {
+      if (err?.name === "TokenExpiredError") {
+        return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+      }
+      return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
     }
   });
 
@@ -2344,7 +2369,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/user/profile", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2365,7 +2390,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/user/referrals", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2383,8 +2408,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         paidReferrals: referrals.filter(r => r.status === 'paid').length,
         totalEarned: referrals.reduce((sum, r) => sum + (r.commissionEarned || 0), 0),
       });
-    } catch {
-      return res.status(401).json({ error: "Invalid token" });
+    } catch (err: any) {
+      if (err?.name === "TokenExpiredError") {
+        return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+      }
+      return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
     }
   });
 
@@ -2392,7 +2420,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/user/commissions", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2401,8 +2429,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const commissions = await storage.getCommissionsByUserId(decoded.id);
       const balance = await storage.getUserBalance(decoded.id);
       res.json({ commissions, balance });
-    } catch {
-      return res.status(401).json({ error: "Invalid token" });
+    } catch (err: any) {
+      if (err?.name === "TokenExpiredError") {
+        return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+      }
+      return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
     }
   });
 
@@ -2410,7 +2441,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/user/payouts", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2424,8 +2455,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         balance,
         minPayoutAmount: settings?.minPayoutAmount || 500,
       });
-    } catch {
-      return res.status(401).json({ error: "Invalid token" });
+    } catch (err: any) {
+      if (err?.name === "TokenExpiredError") {
+        return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+      }
+      return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
     }
   });
 
@@ -2433,7 +2467,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/user/payouts", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2481,7 +2515,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/user/notifications", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2489,8 +2523,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const decoded = jwt.verify(token, JWT_SECRET) as any;
       const notifications = await storage.getNotificationsByUserId(decoded.id);
       res.json(notifications);
-    } catch {
-      return res.status(401).json({ error: "Invalid token" });
+    } catch (err: any) {
+      if (err?.name === "TokenExpiredError") {
+        return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+      }
+      return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
     }
   });
 
@@ -2498,7 +2535,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/user/notifications/:id/read", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2513,7 +2550,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/user/notifications/mark-all-read", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2530,7 +2567,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/user/subscriptions", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2548,8 +2585,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
       
       res.json(subscription);
-    } catch {
-      return res.status(401).json({ error: "Invalid token" });
+    } catch (err: any) {
+      if (err?.name === "TokenExpiredError") {
+        return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+      }
+      return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
     }
   });
 
@@ -2557,7 +2597,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/user/subscriptions", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2601,7 +2641,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/user/sites", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2609,8 +2649,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const decoded = jwt.verify(token, JWT_SECRET) as any;
       const sites = await storage.getUserSites(decoded.id);
       res.json(sites);
-    } catch {
-      return res.status(401).json({ error: "Invalid token" });
+    } catch (err: any) {
+      if (err?.name === "TokenExpiredError") {
+        return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+      }
+      return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
     }
   });
 
@@ -2618,7 +2661,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/user/sites/:id", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2629,8 +2672,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(404).json({ error: "Site not found" });
       }
       res.json(site);
-    } catch {
-      return res.status(401).json({ error: "Invalid token" });
+    } catch (err: any) {
+      if (err?.name === "TokenExpiredError") {
+        return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+      }
+      return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
     }
   });
 
@@ -2638,7 +2684,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/user/sites", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2678,7 +2724,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/user/sites/:id", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2701,7 +2747,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.delete("/api/user/sites/:id", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2724,7 +2770,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/user/sites/:siteId/audits", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2738,8 +2784,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       const audits = await storage.getSiteAudits(req.params.siteId);
       res.json(audits);
-    } catch {
-      return res.status(401).json({ error: "Invalid token" });
+    } catch (err: any) {
+      if (err?.name === "TokenExpiredError") {
+        return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+      }
+      return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
     }
   });
 
@@ -2747,7 +2796,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/user/audits", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2755,8 +2804,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const decoded = jwt.verify(token, JWT_SECRET) as any;
       const audits = await storage.getAuditsByUserId(decoded.id);
       res.json(audits);
-    } catch {
-      return res.status(401).json({ error: "Invalid token" });
+    } catch (err: any) {
+      if (err?.name === "TokenExpiredError") {
+        return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+      }
+      return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
     }
   });
 
@@ -2764,7 +2816,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/user/audits/:id", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2783,8 +2835,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       const findings = await storage.getAuditFindings(req.params.id);
       res.json({ ...audit, findings, site });
-    } catch {
-      return res.status(401).json({ error: "Invalid token" });
+    } catch (err: any) {
+      if (err?.name === "TokenExpiredError") {
+        return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+      }
+      return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
     }
   });
 
@@ -2792,7 +2847,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/user/site-subscriptions", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2800,8 +2855,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const decoded = jwt.verify(token, JWT_SECRET) as any;
       const subscriptions = await storage.getSiteSubscriptionsByUserId(decoded.id);
       res.json(subscriptions);
-    } catch {
-      return res.status(401).json({ error: "Invalid token" });
+    } catch (err: any) {
+      if (err?.name === "TokenExpiredError") {
+        return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+      }
+      return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
     }
   });
 
@@ -2820,7 +2878,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/user/tickets", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2828,8 +2886,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const decoded = jwt.verify(token, JWT_SECRET) as any;
       const tickets = await storage.getTicketsByUserId(decoded.id);
       res.json(tickets);
-    } catch {
-      return res.status(401).json({ error: "Invalid token" });
+    } catch (err: any) {
+      if (err?.name === "TokenExpiredError") {
+        return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+      }
+      return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
     }
   });
 
@@ -2837,7 +2898,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/user/tickets", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2877,7 +2938,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/user/tickets/:id", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
@@ -2893,8 +2954,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // Filter out internal messages for users
       const userMessages = messages.filter(m => !m.isInternal);
       res.json({ ...ticket, messages: userMessages });
-    } catch {
-      return res.status(401).json({ error: "Invalid token" });
+    } catch (err: any) {
+      if (err?.name === "TokenExpiredError") {
+        return res.status(401).json({ error: "Сессия истекла. Войдите в систему заново.", code: "TOKEN_EXPIRED" });
+      }
+      return res.status(401).json({ error: "Недействительный токен. Войдите в систему заново.", code: "INVALID_TOKEN" });
     }
   });
 
@@ -2902,7 +2966,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/user/tickets/:id/messages", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Требуется авторизация. Войдите в систему.", code: "NO_TOKEN" });
     }
 
     try {
