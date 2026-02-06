@@ -324,9 +324,16 @@ export default function AISettingsPage() {
         headers: { Authorization: `Bearer ${localStorage.getItem("adminToken")}` }
       });
       const result = await res.json();
-      setTestResults(prev => ({ ...prev, [provider]: result }));
+      const message = result.message || result.error || (result.success ? "Подключение успешно" : "Ошибка подключения");
+      setTestResults(prev => ({ ...prev, [provider]: { success: !!result.success, message } }));
+      toast({
+        title: result.success ? "Подключение успешно" : "Ошибка подключения",
+        description: result.success ? undefined : message,
+        variant: result.success ? "default" : "destructive",
+      });
     } catch (error) {
-      setTestResults(prev => ({ ...prev, [provider]: { success: false, message: "Ошибка запроса" } }));
+      setTestResults(prev => ({ ...prev, [provider]: { success: false, message: "Не удалось выполнить запрос. Проверьте подключение к серверу." } }));
+      toast({ title: "Ошибка запроса", variant: "destructive" });
     } finally {
       setTestLoading(prev => ({ ...prev, [provider]: false }));
     }

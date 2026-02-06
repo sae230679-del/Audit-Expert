@@ -84,14 +84,25 @@ export default function AdminAiConsultant() {
 
   const testMutation = useMutation({
     mutationFn: async (question: string) => {
-      const res = await apiRequest("POST", "/api/ai/chat", { question });
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...Object.fromEntries(
+            Object.entries({
+              Authorization: localStorage.getItem("adminToken") ? `Bearer ${localStorage.getItem("adminToken")}` : undefined,
+            }).filter(([, v]) => v !== undefined)
+          ),
+        },
+        body: JSON.stringify({ question }),
+      });
       return res.json();
     },
     onSuccess: (data: any) => {
-      setTestResponse(data.answer || JSON.stringify(data, null, 2));
+      setTestResponse(data.answer || data.error || JSON.stringify(data, null, 2));
     },
-    onError: () => {
-      setTestResponse("Ошибка при отправке тестового вопроса. Проверьте настройки провайдера.");
+    onError: (error: any) => {
+      setTestResponse(`Ошибка при отправке тестового вопроса: ${error?.message || "Проверьте настройки провайдера."}`);
     },
   });
 

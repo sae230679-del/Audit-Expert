@@ -50,7 +50,7 @@ async function getAccessToken(config: GigaChatConfig): Promise<string> {
         "Content-Type": "application/x-www-form-urlencoded",
         "Accept": "application/json",
         "Authorization": `Basic ${config.credentials}`,
-        "RqUID": crypto.randomUUID(),
+        "RqUID": `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       },
       rejectUnauthorized: false,
     };

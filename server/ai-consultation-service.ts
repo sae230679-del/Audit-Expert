@@ -43,6 +43,7 @@ export interface ConsultationAISettings {
   yandexFolderId: string | null;
   yandexModelUri: string | null;
   gigachatApiKey: string | null;
+  gigachatScope: string | null;
   openaiApiKey: string | null;
   useGuideKnowledge: boolean;
 }
@@ -57,6 +58,7 @@ async function getConsultationAISettings(): Promise<ConsultationAISettings> {
     yandexFolderId: null,
     yandexModelUri: null,
     gigachatApiKey: null,
+    gigachatScope: null,
     openaiApiKey: null,
     useGuideKnowledge: true,
   };
@@ -73,6 +75,7 @@ async function getConsultationAISettings(): Promise<ConsultationAISettings> {
     result.openaiEnabled = (siteSettings as any).openaiEnabled || false;
 
     result.gigachatApiKey = siteSettings.gigachatCredentials || process.env.CONSULTATION_GIGACHAT_API_KEY || process.env.GIGACHATAPIKEY || null;
+    result.gigachatScope = (siteSettings as any).gigachatScope || null;
     result.yandexApiKey = (siteSettings as any).yandexGptApiKey || process.env.CONSULTATION_YANDEX_API_KEY || process.env.YANDEX_IAM_TOKEN || null;
     result.yandexFolderId = (siteSettings as any).yandexGptFolderId || process.env.CONSULTATION_YANDEX_FOLDER_ID || null;
     result.openaiApiKey = (siteSettings as any).openaiApiKey || process.env.CONSULTATION_OPENAI_API_KEY || process.env.OPENAIAPIKEY || null;
@@ -220,26 +223,29 @@ async function callYandexGPT(
 
 // ============= GIGACHAT =============
 
-async function getGigaChatAccessToken(apiKey: string): Promise<string | null> {
+async function getGigaChatAccessToken(apiKey: string, scope?: string): Promise<string | null> {
   if (cachedGigaChatToken && cachedGigaChatToken.expiresAt > Date.now()) {
     return cachedGigaChatToken.token;
   }
 
   return new Promise((resolve) => {
-    const data = "scope=GIGACHAT_API_PERS";
+    const gigachatScope = scope || "GIGACHAT_API_PERS";
+    const data = `scope=${gigachatScope}`;
+
+    const rquid = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
     const options: https.RequestOptions = {
       hostname: "ngw.devices.sberbank.ru",
-      port: 443,
+      port: 9443,
       path: "/api/v2/oauth",
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         Accept: "application/json",
-        RqUID: crypto.randomUUID(),
+        RqUID: rquid,
         Authorization: `Basic ${apiKey}`,
       },
-      ...(isDevelopment && { rejectUnauthorized: false }),
+      rejectUnauthorized: false,
     };
 
     const req = https.request(options, (res) => {
@@ -284,7 +290,7 @@ async function callGigaChat(
     return null;
   }
 
-  const token = await getGigaChatAccessToken(settings.gigachatApiKey);
+  const token = await getGigaChatAccessToken(settings.gigachatApiKey, settings.gigachatScope || undefined);
   if (!token) return null;
 
   return new Promise((resolve) => {
