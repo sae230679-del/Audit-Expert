@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Save, Loader2, Building2, CreditCard, Mail, Phone, Key, Users, Percent, Gift, Wallet, AlertTriangle } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Save, Loader2, Building2, CreditCard, Mail, Phone, Key, Users, Percent, Gift, Wallet, AlertTriangle, FileText, Shield, Cookie, ScrollText } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { SiteSettings, ReferralSettings } from "@shared/schema";
@@ -113,6 +114,7 @@ export default function AdminSettings() {
           <TabsTrigger value="prices">Цены</TabsTrigger>
           <TabsTrigger value="referral">Рефералы</TabsTrigger>
           <TabsTrigger value="pages">Страницы</TabsTrigger>
+          <TabsTrigger value="documents">Документы</TabsTrigger>
           <TabsTrigger value="oauth">OAuth</TabsTrigger>
           <TabsTrigger value="telegram">Telegram</TabsTrigger>
         </TabsList>
@@ -531,6 +533,87 @@ export default function AdminSettings() {
                   checked={formData.monitoringComingSoon ?? true}
                   onCheckedChange={(checked) => updateField("monitoringComingSoon", checked)}
                   data-testid="switch-monitoring-coming-soon"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="documents" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Правовые документы
+              </CardTitle>
+              <CardDescription>
+                Политика конфиденциальности, согласия, договор-оферта
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  Политика конфиденциальности
+                </Label>
+                <Textarea
+                  value={formData.privacyPolicy || ""}
+                  onChange={(e) => updateField("privacyPolicy", e.target.value)}
+                  placeholder="Введите текст политики конфиденциальности..."
+                  className="min-h-[300px] resize-y font-mono text-sm"
+                  data-testid="textarea-privacy-policy"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <ScrollText className="h-4 w-4" />
+                  Пользовательское соглашение
+                </Label>
+                <Textarea
+                  value={formData.termsOfService || ""}
+                  onChange={(e) => updateField("termsOfService", e.target.value)}
+                  placeholder="Введите текст пользовательского соглашения..."
+                  className="min-h-[300px] resize-y font-mono text-sm"
+                  data-testid="textarea-terms-of-service"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Cookie className="h-4 w-4" />
+                  Политика cookies
+                </Label>
+                <Textarea
+                  value={formData.cookiePolicy || ""}
+                  onChange={(e) => updateField("cookiePolicy", e.target.value)}
+                  placeholder="Введите текст политики cookies..."
+                  className="min-h-[300px] resize-y font-mono text-sm"
+                  data-testid="textarea-cookie-policy"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Согласие на обработку ПДн
+                </Label>
+                <Textarea
+                  value={formData.consentText || ""}
+                  onChange={(e) => updateField("consentText", e.target.value)}
+                  placeholder="Введите текст согласия на обработку персональных данных..."
+                  className="min-h-[300px] resize-y font-mono text-sm"
+                  data-testid="textarea-consent-text"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Договор-оферта
+                </Label>
+                <Textarea
+                  value={formData.offerText || ""}
+                  onChange={(e) => updateField("offerText", e.target.value)}
+                  placeholder="Введите текст договора-оферты..."
+                  className="min-h-[300px] resize-y font-mono text-sm"
+                  data-testid="textarea-offer-text"
                 />
               </div>
             </CardContent>

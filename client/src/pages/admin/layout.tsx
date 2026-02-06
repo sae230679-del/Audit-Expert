@@ -107,7 +107,7 @@ const menuSections: MenuSection[] = [
       { title: "Панель менеджера", url: "/admin/manager", icon: ClipboardList },
       { title: "Сообщения", url: "/admin/messages", icon: Mail, notificationKey: "messages" },
       { title: "Заказы", url: "/admin/orders", icon: CreditCard, notificationKey: "orders" },
-      { title: "Документы", url: "/admin/documents", icon: FileText, notificationKey: "documents" },
+      { title: "Документы", url: "/admin/settings", icon: FileText },
     ],
   },
   {
