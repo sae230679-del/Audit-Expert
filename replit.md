@@ -179,11 +179,21 @@ Note: The справочник (guide) is internal-only for AI document analysis
 - `ERRORS_AND_CHANGES.md` — Реестр ошибок, план исправлений, история изменений
 
 ### Known Critical Bugs (see ERRORS_AND_CHANGES.md)
-- BUG-001: Реферальная комиссия не начисляется (getUserByReferralCode вместо getUser)
-- BUG-002: Запись referral не создаётся при регистрации
-- BUG-006: userId не привязывается к заказам при оплате
+- ~~BUG-001: Реферальная комиссия не начисляется~~ — ИСПРАВЛЕНО (2026-02-10)
+- ~~BUG-002: Запись referral не создаётся при регистрации~~ — ИСПРАВЛЕНО (2026-02-10)
+- ~~BUG-006: userId не привязывается к заказам при оплате~~ — ИСПРАВЛЕНО (2026-02-10)
+- Оставшиеся заглушки: STUB-001 (ИНН-проверка в реестре РКН — фиктивные данные)
 
-### Recent Changes (2026-02-06)
+### Recent Changes (2026-02-10)
+- **BUG-001 ИСПРАВЛЕН**: Реферальная комиссия — поиск реферера по userId вместо referralCode. Добавлена идемпотентность (проверка существующей комиссии по orderId).
+- **BUG-002 ИСПРАВЛЕН**: Добавлено создание записи в таблицу referrals при регистрации по реферальному коду.
+- **BUG-004 ИСПРАВЛЕН**: Начисление реферальной комиссии в тестовом режиме оплаты.
+- **BUG-006 ИСПРАВЛЕН**: Привязка userId к заказам при оплате (извлечение JWT из Authorization).
+- **BUG-008 ИСПРАВЛЕН**: OAuth VK/Yandex — создание userSubscriptions и welcome notification при регистрации.
+- **BUG-009 ИСПРАВЛЕН**: OAuth CSRF — реализован in-memory state store с привязкой к IP и TTL 10 минут.
+- **LSP-ошибки исправлены**: documents.userId → clientUserId, Number(id) для serial PK, type casts.
+
+### Changes (2026-02-06)
 - **GigaChat OAuth**: Исправлен RqUID на UUID4 формат (требование Sber API)
 - **GigaChat expires_at**: Исправлена обработка — Сбер возвращает миллисекунды, не секунды
 - **GigaChat rejectUnauthorized**: Отключена проверка SSL для сертификатов НУЦ Минцифры (всегда, не только development)

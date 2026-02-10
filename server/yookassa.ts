@@ -172,10 +172,16 @@ export async function handleWebhook(body: YooKassaWebhookEvent, ipAddress?: stri
   return { success: true };
 }
 
-async function processReferralCommission(orderId: string, orderAmount: number) {
+export async function processReferralCommission(orderId: string, orderAmount: number) {
   try {
     const order = await storage.getOrder(orderId);
     if (!order?.userId) return;
+
+    const existingCommissions = await storage.getCommissionsByOrderId(orderId);
+    if (existingCommissions.length > 0) {
+      console.log(`[REFERRAL] Commission already exists for order ${orderId}, skipping`);
+      return;
+    }
 
     const user = await storage.getUser(order.userId);
     if (!user?.referredBy) return;
@@ -186,23 +192,33 @@ async function processReferralCommission(orderId: string, orderAmount: number) {
     const commissionPercent = referralSettings.commissionPercent || 20;
     const commissionAmount = Math.floor(orderAmount * commissionPercent / 100);
 
-    const referrer = await storage.getUserByReferralCode(user.referredBy);
+    const referrer = await storage.getUser(user.referredBy);
     if (!referrer) return;
+
+    const referral = (await storage.getReferralsByReferrerId(referrer.id))
+      .find(r => r.refereeId === String(order.userId));
 
     await storage.createCommission({
       userId: referrer.id,
       orderId,
-      referralId: null,
+      referralId: referral?.id || null,
       amount: commissionAmount,
       type: 'referral',
       status: 'credited',
     });
 
+    if (referral) {
+      await storage.updateReferral(referral.id, {
+        status: 'paid',
+        commissionEarned: (referral.commissionEarned || 0) + commissionAmount,
+      });
+    }
+
     await db.update(users)
       .set({ bonusBalance: (referrer.bonusBalance || 0) + commissionAmount })
       .where(eq(users.id, referrer.id));
 
-    console.log(`Referral commission ${commissionAmount} credited to user ${referrer.id}`);
+    console.log(`[REFERRAL] Commission ${commissionAmount} credited to referrer ${referrer.id} for order ${orderId}`);
   } catch (error) {
     console.error('Error processing referral commission:', error);
   }

@@ -13,6 +13,27 @@ import { initTelegramNotifications, notifyContactFormMessage, notifyExpressRepor
 import crypto from "crypto";
 
 const JWT_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+
+const oauthStates = new Map<string, { ts: number; ip: string }>();
+function createOAuthState(ip: string): string {
+  const state = crypto.randomBytes(16).toString('hex');
+  oauthStates.set(state, { ts: Date.now(), ip });
+  const now = Date.now();
+  const expired: string[] = [];
+  oauthStates.forEach((val, key) => {
+    if (now - val.ts > 10 * 60 * 1000) expired.push(key);
+  });
+  expired.forEach(key => oauthStates.delete(key));
+  return state;
+}
+function validateOAuthState(state: string | undefined, ip: string): boolean {
+  if (!state || !oauthStates.has(state)) return false;
+  const entry = oauthStates.get(state)!;
+  oauthStates.delete(state);
+  if (Date.now() - entry.ts > 10 * 60 * 1000) return false;
+  if (entry.ip !== ip) return false;
+  return true;
+}
 if (!process.env.SESSION_SECRET) {
   console.warn("WARNING: SESSION_SECRET not set. Using random secret - sessions will not persist across restarts.");
 }
@@ -743,6 +764,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
       const { name, email, phone, company, whatsapp, telegram, inn, orderType, packageId, siteUrl, promoCodeId } = parsed.data;
 
+      let authUserId: string | null = null;
+      const authHeader = req.headers.authorization;
+      if (authHeader?.startsWith("Bearer ")) {
+        try {
+          const decoded = jwt.verify(authHeader.substring(7), JWT_SECRET) as any;
+          if (decoded?.id) authUserId = decoded.id;
+        } catch {}
+      }
+
       // Calculate amount server-side from package or settings (don't trust client)
       let serverAmount = 0;
       if (orderType === 'express') {
@@ -791,10 +821,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       const finalAmount = Math.max(0, serverAmount - discountAmount);
 
-      // Create order with server-calculated amounts
+      // Create order with server-calculated amounts and userId
       const order = await storage.createOrder({
         siteUrl: siteUrl || "",
         email,
+        userId: authUserId,
         customerName: name,
         customerPhone: phone,
         customerCompany: company || null,
@@ -844,6 +875,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           serviceName: orderType === 'express' ? 'Экспресс-отчёт' : 'Полный аудит',
           orderId: parseInt(order.id) || undefined,
         }).catch(err => console.error("[TELEGRAM] Payment notification failed:", err));
+
+        // Process referral commission in test mode (same as webhook does in production)
+        const { processReferralCommission } = await import("./yookassa");
+        processReferralCommission(order.id, finalAmount)
+          .catch(err => console.error("[REFERRAL] Test mode commission failed:", err));
 
         return res.json({ 
           success: true, 
@@ -1865,17 +1901,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         referredBy: referredById,
       } as any);
 
-      // If user was referred, add bonus to referrer
+      // If user was referred, create referral record and add bonus to referrer
       if (referredById) {
         const referrer = await storage.getUser(referredById);
         if (referrer) {
+          await storage.createReferral({
+            referrerId: referredById,
+            refereeId: user.id,
+            status: 'registered',
+            commissionEarned: 0,
+          });
+
           const settings = await storage.getReferralSettings();
           const bonus = settings?.referrerBonus || 100;
           await storage.updateUser(referredById, {
             bonusBalance: (referrer.bonusBalance || 0) + bonus,
           } as any);
           
-          // Send Telegram notification for referral registration
           notifyReferralRegistration({
             email: data.email,
             referrerEmail: referrer.email || undefined,
@@ -2024,7 +2066,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
 
       const redirectUri = `${req.protocol}://${req.get('host')}/api/auth/vk/callback`;
-      const state = Math.random().toString(36).substring(7);
+      const state = createOAuthState(req.ip || '');
       
       const authUrl = `https://oauth.vk.com/authorize?client_id=${settings.vkAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=email&v=5.131&state=${state}`;
       
@@ -2037,10 +2079,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // VK OAuth - Callback
   app.get("/api/auth/vk/callback", async (req, res) => {
     try {
-      const { code, error: vkError } = req.query;
+      const { code, error: vkError, state } = req.query;
       
       if (vkError) {
         return res.redirect("/auth?error=vk_denied");
+      }
+
+      if (!validateOAuthState(state as string | undefined, req.ip || '')) {
+        return res.redirect("/auth?error=vk_invalid_state");
       }
 
       if (!code) {
@@ -2108,6 +2154,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             role: "user",
             referralCode,
           });
+
+          await storage.createOrUpdateSubscription(user.id, {
+            emailNews: true, emailPromo: true, inAppNotifications: true,
+            emailOrders: true, emailPayments: true, emailReferrals: true,
+            emailAuditReports: true, emailPasswordReset: true,
+          });
+
+          import("./notification-service").then(({ dispatchNotification }) => {
+            dispatchNotification('user_registered', {
+              userId: user!.id,
+              email: email || undefined,
+              username,
+            }).catch(err => console.error("[NOTIFY] VK welcome notification failed:", err));
+          });
         }
       }
 
@@ -2135,7 +2195,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
 
       const redirectUri = `${req.protocol}://${req.get('host')}/api/auth/yandex/callback`;
-      const state = Math.random().toString(36).substring(7);
+      const state = createOAuthState(req.ip || '');
       
       const authUrl = `https://oauth.yandex.com/authorize?client_id=${settings.yandexClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${state}`;
       
@@ -2148,10 +2208,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Yandex OAuth - Callback
   app.get("/api/auth/yandex/callback", async (req, res) => {
     try {
-      const { code, error: yandexError } = req.query;
+      const { code, error: yandexError, state } = req.query;
       
       if (yandexError) {
         return res.redirect("/auth?error=yandex_denied");
+      }
+
+      if (!validateOAuthState(state as string | undefined, req.ip || '')) {
+        return res.redirect("/auth?error=yandex_invalid_state");
       }
 
       if (!code) {
@@ -2233,6 +2297,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             avatarUrl,
             role: "user",
             referralCode,
+          });
+
+          await storage.createOrUpdateSubscription(user.id, {
+            emailNews: true, emailPromo: true, inAppNotifications: true,
+            emailOrders: true, emailPayments: true, emailReferrals: true,
+            emailAuditReports: true, emailPasswordReset: true,
+          });
+
+          import("./notification-service").then(({ dispatchNotification }) => {
+            dispatchNotification('user_registered', {
+              userId: user!.id,
+              email: email || undefined,
+              username,
+            }).catch(err => console.error("[NOTIFY] Yandex welcome notification failed:", err));
           });
         }
       }

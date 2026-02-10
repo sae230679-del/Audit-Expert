@@ -143,6 +143,7 @@ export interface IStorage {
 
   // Commissions
   getCommissionsByUserId(userId: string): Promise<Commission[]>;
+  getCommissionsByOrderId(orderId: string): Promise<Commission[]>;
   createCommission(data: InsertCommission): Promise<Commission>;
   updateCommission(id: string, data: Partial<Commission>): Promise<Commission | undefined>;
   getUserBalance(userId: string): Promise<number>;
@@ -599,6 +600,10 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(commissions).where(eq(commissions.userId, userId)).orderBy(desc(commissions.createdAt));
   }
 
+  async getCommissionsByOrderId(orderId: string): Promise<Commission[]> {
+    return db.select().from(commissions).where(eq(commissions.orderId, orderId));
+  }
+
   async createCommission(data: InsertCommission): Promise<Commission> {
     const [created] = await db.insert(commissions).values(data).returning();
     return created;
@@ -843,15 +848,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDocumentsByUserId(userId: string): Promise<Document[]> {
-    return db.select().from(documents).where(eq(documents.userId, userId)).orderBy(desc(documents.createdAt));
+    return db.select().from(documents).where(eq(documents.clientUserId, userId)).orderBy(desc(documents.createdAt));
   }
 
   async getDocumentsByStatus(status: string): Promise<Document[]> {
-    return db.select().from(documents).where(eq(documents.status, status)).orderBy(desc(documents.createdAt));
+    return db.select().from(documents).where(eq(documents.status, status as any)).orderBy(desc(documents.createdAt));
   }
 
   async getDocument(id: string): Promise<Document | undefined> {
-    const [doc] = await db.select().from(documents).where(eq(documents.id, id));
+    const [doc] = await db.select().from(documents).where(eq(documents.id, Number(id)));
     return doc || undefined;
   }
 
@@ -861,12 +866,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateDocument(id: string, data: Partial<Document>): Promise<Document | undefined> {
-    const [updated] = await db.update(documents).set({ ...data, updatedAt: new Date() }).where(eq(documents.id, id)).returning();
+    const [updated] = await db.update(documents).set({ ...data, updatedAt: new Date() } as any).where(eq(documents.id, Number(id))).returning();
     return updated || undefined;
   }
 
   async deleteDocument(id: string): Promise<void> {
-    await db.delete(documents).where(eq(documents.id, id));
+    await db.delete(documents).where(eq(documents.id, Number(id)));
   }
 
   // Guide Sections
@@ -936,12 +941,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createGuideArticle(data: InsertGuideArticle): Promise<GuideArticle> {
-    const [created] = await db.insert(guideArticles).values(data).returning();
+    const [created] = await db.insert(guideArticles).values(data as any).returning();
     return created;
   }
 
   async updateGuideArticle(id: number, data: Partial<InsertGuideArticle>): Promise<GuideArticle | undefined> {
-    const [updated] = await db.update(guideArticles).set({ ...data, updatedAt: new Date() }).where(eq(guideArticles.id, id)).returning();
+    const [updated] = await db.update(guideArticles).set({ ...data, updatedAt: new Date() } as any).where(eq(guideArticles.id, id)).returning();
     return updated || undefined;
   }
 
