@@ -174,6 +174,15 @@ Note: The справочник (guide) is internal-only for AI document analysis
 - **Replit**: Autoscale deployment with `npm run build` → `npm run start`
 - **VPS**: Ubuntu 24.04 with Hestia Panel, deploy via GitHub → `git pull` → `npm install` → `npm run build` → `pm2 restart`
 
+### Detailed Documentation
+- `PROJECT_OVERVIEW.md` — Полный обзор проекта, структура, API, модель данных
+- `ERRORS_AND_CHANGES.md` — Реестр ошибок, план исправлений, история изменений
+
+### Known Critical Bugs (see ERRORS_AND_CHANGES.md)
+- BUG-001: Реферальная комиссия не начисляется (getUserByReferralCode вместо getUser)
+- BUG-002: Запись referral не создаётся при регистрации
+- BUG-006: userId не привязывается к заказам при оплате
+
 ### Recent Changes (2026-02-06)
 - **GigaChat OAuth**: Исправлен RqUID на UUID4 формат (требование Sber API)
 - **GigaChat expires_at**: Исправлена обработка — Сбер возвращает миллисекунды, не секунды
