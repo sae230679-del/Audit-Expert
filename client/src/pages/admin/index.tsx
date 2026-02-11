@@ -26,6 +26,7 @@ import AdminNotifications from "./notifications";
 import AdminGuide from "./guide";
 import AdminAiConsultant from "./ai-consultant";
 import AdminIntegrations from "./integrations";
+import AdminSecurity from "./security";
 
 export default function AdminIndex() {
   const [location, setLocation] = useLocation();
@@ -71,6 +72,7 @@ export default function AdminIndex() {
         <Route path="/admin/ai-consultant" component={AdminAiConsultant} />
         <Route path="/admin/notifications" component={AdminNotifications} />
         <Route path="/admin/integrations" component={AdminIntegrations} />
+        <Route path="/admin/security" component={AdminSecurity} />
         <Route path="/admin/settings" component={AdminSettings} />
         <Route path="/admin/documents">{() => { window.location.href = "/admin/settings"; return null; }}</Route>
         <Route path="/admin/payments" component={AdminPayments} />
