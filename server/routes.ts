@@ -11,6 +11,9 @@ import { createPayment, handleWebhook, type YooKassaWebhookEvent } from "./yooka
 import { initTelegramNotifications, notifyContactFormMessage, notifyExpressReportRequest, notifyFullAuditRequest, notifyReferralRegistration, notifySuccessfulPayment, notifyNewOrder, updateTelegramSettings } from "./telegram-notifications";
 
 import crypto from "crypto";
+import logger, { logSecurity } from "./utils/logger";
+import { checkBruteForce, recordFailedLogin, recordSuccessfulLogin } from "./utils/brute-force";
+import { validatePassword, DEFAULT_STANDARD_POLICY } from "../shared/password-policy";
 
 const JWT_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 
@@ -943,22 +946,36 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/auth/login", async (req, res) => {
     try {
+      const clientIp = req.ip || "unknown";
       const data = loginSchema.parse(req.body);
+
+      const bruteCheck = checkBruteForce(clientIp, data.username);
+      if (bruteCheck.blocked) {
+        logSecurity({ type: "brute_force", action: "login_blocked", ip: clientIp, success: false, details: { username: data.username, retryAfter: bruteCheck.retryAfter } });
+        return res.status(429).json({ error: `Слишком много попыток входа. Повторите через ${bruteCheck.retryAfter} секунд` });
+      }
 
       const user = await storage.getUserByUsername(data.username);
       if (!user) {
+        recordFailedLogin(clientIp, data.username);
+        logSecurity({ type: "auth", action: "admin_login_failed", ip: clientIp, success: false, details: { username: data.username, reason: "user_not_found" } });
         return res.status(401).json({ error: "Неверный логин или пароль" });
       }
 
-      // Check password
       const validPassword = await bcrypt.compare(data.password, user.password);
       if (!validPassword) {
+        recordFailedLogin(clientIp, data.username);
+        logSecurity({ type: "auth", action: "admin_login_failed", ip: clientIp, userId: Number(user.id), success: false, details: { username: data.username, reason: "invalid_password" } });
         return res.status(401).json({ error: "Неверный логин или пароль" });
       }
 
       if (user.role !== 'admin' && user.role !== 'superadmin') {
+        logSecurity({ type: "access", action: "admin_access_denied", ip: clientIp, userId: Number(user.id), success: false, details: { role: user.role } });
         return res.status(403).json({ error: "Доступ запрещен" });
       }
+
+      recordSuccessfulLogin(clientIp, data.username);
+      logSecurity({ type: "auth", action: "admin_login_success", ip: clientIp, userId: Number(user.id), success: true });
 
       const token = jwt.sign(
         { id: user.id, username: user.username, role: user.role },
@@ -1860,7 +1877,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // User registration
   app.post("/api/auth/register", async (req, res) => {
     try {
+      const clientIp = req.ip || "unknown";
       const data = registerUserSchema.parse(req.body);
+
+      const passwordCheck = validatePassword(data.password, DEFAULT_STANDARD_POLICY);
+      if (!passwordCheck.isValid) {
+        return res.status(400).json({ error: passwordCheck.errors.join(". ") });
+      }
 
       // Check if username exists
       const existingUsername = await storage.getUserByUsername(data.username);
@@ -1975,20 +1998,33 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // User login (for non-admin users)
   app.post("/api/auth/user-login", async (req, res) => {
     try {
+      const clientIp = req.ip || "unknown";
       const data = loginSchema.parse(req.body);
+
+      const bruteCheck = checkBruteForce(clientIp, data.username);
+      if (bruteCheck.blocked) {
+        logSecurity({ type: "brute_force", action: "user_login_blocked", ip: clientIp, success: false, details: { identifier: data.username, retryAfter: bruteCheck.retryAfter } });
+        return res.status(429).json({ error: `Слишком много попыток входа. Повторите через ${bruteCheck.retryAfter} секунд` });
+      }
 
       const user = await storage.getUserByUsername(data.username);
       if (!user) {
-        // Try by email
         const userByEmail = await storage.getUserByEmail(data.username);
         if (!userByEmail) {
+          recordFailedLogin(clientIp, data.username);
+          logSecurity({ type: "auth", action: "user_login_failed", ip: clientIp, success: false, details: { identifier: data.username, reason: "not_found" } });
           return res.status(401).json({ error: "Неверный логин или пароль" });
         }
         
         const validPassword = await bcrypt.compare(data.password, userByEmail.password);
         if (!validPassword) {
+          recordFailedLogin(clientIp, data.username);
+          logSecurity({ type: "auth", action: "user_login_failed", ip: clientIp, userId: Number(userByEmail.id), success: false, details: { reason: "invalid_password" } });
           return res.status(401).json({ error: "Неверный логин или пароль" });
         }
+
+        recordSuccessfulLogin(clientIp, data.username);
+        logSecurity({ type: "auth", action: "user_login_success", ip: clientIp, userId: Number(userByEmail.id), success: true });
 
         const token = jwt.sign(
           { id: userByEmail.id, username: userByEmail.username, role: userByEmail.role },
@@ -2011,8 +2047,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       const validPassword = await bcrypt.compare(data.password, user.password);
       if (!validPassword) {
+        recordFailedLogin(clientIp, data.username);
+        logSecurity({ type: "auth", action: "user_login_failed", ip: clientIp, userId: Number(user.id), success: false, details: { reason: "invalid_password" } });
         return res.status(401).json({ error: "Неверный логин или пароль" });
       }
+
+      recordSuccessfulLogin(clientIp, data.username);
+      logSecurity({ type: "auth", action: "user_login_success", ip: clientIp, userId: Number(user.id), success: true });
 
       const token = jwt.sign(
         { id: user.id, username: user.username, role: user.role },
@@ -3634,6 +3675,186 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(newMessage);
     } catch {
       res.status(500).json({ error: "Failed to send reply" });
+    }
+  });
+
+  // ====================
+  // SECURITY AGENT API
+  // ====================
+
+  app.post("/api/admin/security/scan", verifySuperAdmin, async (req: any, res) => {
+    try {
+      const { url } = req.body;
+      if (!url || typeof url !== "string") {
+        return res.status(400).json({ error: "URL обязателен" });
+      }
+
+      const { validateWebsiteUrl } = await import("./utils/url");
+      try {
+        validateWebsiteUrl(url);
+      } catch {
+        return res.status(400).json({ error: "Некорректный или небезопасный URL" });
+      }
+
+      const { runSecurityScan } = await import("./security-agent");
+      const result = await runSecurityScan(url);
+      res.json(result);
+    } catch (error: any) {
+      logger.error(`Security scan error: ${error.message}`);
+      res.status(500).json({ error: "Ошибка сканирования безопасности" });
+    }
+  });
+
+  // ====================
+  // DOC GENERATOR API
+  // ====================
+
+  app.get("/api/admin/security/doc-templates", verifySuperAdmin, async (_req: any, res) => {
+    try {
+      const { getAvailableTemplates } = await import("./doc-generator");
+      res.json(getAvailableTemplates());
+    } catch (error: any) {
+      res.status(500).json({ error: "Ошибка получения шаблонов" });
+    }
+  });
+
+  app.post("/api/admin/security/doc-generate", verifySuperAdmin, async (req: any, res) => {
+    try {
+      const { framework, organizationName, systemName, scanUrl } = req.body;
+      if (!framework || !organizationName || !systemName) {
+        return res.status(400).json({ error: "Обязательные поля: framework, organizationName, systemName" });
+      }
+
+      let scanResult;
+      if (scanUrl) {
+        const { runSecurityScan } = await import("./security-agent");
+        scanResult = await runSecurityScan(scanUrl);
+      }
+
+      const { generateDocument } = await import("./doc-generator");
+      const doc = generateDocument(framework, organizationName, systemName, scanResult);
+      res.json(doc);
+    } catch (error: any) {
+      logger.error(`Doc generation error: ${error.message}`);
+      res.status(500).json({ error: "Ошибка генерации документа" });
+    }
+  });
+
+  // ====================
+  // IB INTEGRATIONS API
+  // ====================
+
+  app.get("/api/admin/security/integrations", verifySuperAdmin, async (_req: any, res) => {
+    try {
+      const { getIntegrationsMeta } = await import("./integrations-ib");
+      res.json(getIntegrationsMeta());
+    } catch (error: any) {
+      res.status(500).json({ error: "Ошибка получения интеграций" });
+    }
+  });
+
+  app.post("/api/admin/security/integrations/check", verifySuperAdmin, async (req: any, res) => {
+    try {
+      const { integrationId, apiUrl, apiKey } = req.body;
+      if (!integrationId || !apiUrl || !apiKey) {
+        return res.status(400).json({ error: "Обязательные поля: integrationId, apiUrl, apiKey" });
+      }
+      const { checkIntegrationStatus } = await import("./integrations-ib");
+      const status = await checkIntegrationStatus(integrationId, apiUrl, apiKey);
+      res.json(status);
+    } catch (error: any) {
+      res.status(500).json({ error: "Ошибка проверки интеграции" });
+    }
+  });
+
+  app.post("/api/admin/security/integrations/config", verifySuperAdmin, async (req: any, res) => {
+    try {
+      const { integrationId, apiUrl } = req.body;
+      if (!integrationId || !apiUrl) {
+        return res.status(400).json({ error: "Обязательные поля: integrationId, apiUrl" });
+      }
+      const { generateSiemConfig } = await import("./integrations-ib");
+      const config = generateSiemConfig(integrationId, apiUrl);
+      res.json({ config });
+    } catch (error: any) {
+      res.status(500).json({ error: "Ошибка генерации конфигурации" });
+    }
+  });
+
+  // ====================
+  // PASSWORD POLICY API
+  // ====================
+
+  app.get("/api/auth/password-policy", async (_req, res) => {
+    try {
+      const { DEFAULT_STANDARD_POLICY: policy, getPasswordRequirementsText } = await import("../shared/password-policy");
+      res.json({
+        policy,
+        requirements: getPasswordRequirementsText(policy),
+      });
+    } catch {
+      res.status(500).json({ error: "Ошибка получения политики паролей" });
+    }
+  });
+
+  app.post("/api/auth/validate-password", async (req, res) => {
+    try {
+      const { password } = req.body;
+      if (!password || typeof password !== "string") {
+        return res.status(400).json({ error: "Пароль обязателен" });
+      }
+      const result = validatePassword(password, DEFAULT_STANDARD_POLICY);
+      res.json(result);
+    } catch {
+      res.status(500).json({ error: "Ошибка валидации пароля" });
+    }
+  });
+
+  // ====================
+  // LOGGER API (SuperAdmin)
+  // ====================
+
+  app.get("/api/admin/security/logs", verifySuperAdmin, async (req: any, res) => {
+    try {
+      const { getRecentLogs } = await import("./utils/logger");
+      const type = (req.query.type as string) || "all";
+      const limit = parseInt(req.query.limit as string) || 100;
+      const level = req.query.level as string;
+      const logs = await getRecentLogs({ type: type as any, limit, level });
+      res.json(logs);
+    } catch (error: any) {
+      res.status(500).json({ error: "Ошибка получения логов" });
+    }
+  });
+
+  app.get("/api/admin/security/logs/stats", verifySuperAdmin, async (_req: any, res) => {
+    try {
+      const { getLogStats } = await import("./utils/logger");
+      const stats = await getLogStats();
+      res.json(stats);
+    } catch (error: any) {
+      res.status(500).json({ error: "Ошибка получения статистики логов" });
+    }
+  });
+
+  app.get("/api/admin/security/brute-force/config", verifySuperAdmin, async (_req: any, res) => {
+    try {
+      const { getBruteForceConfig } = await import("./utils/brute-force");
+      res.json(getBruteForceConfig());
+    } catch {
+      res.status(500).json({ error: "Ошибка получения конфигурации" });
+    }
+  });
+
+  app.put("/api/admin/security/brute-force/config", verifySuperAdmin, async (req: any, res) => {
+    try {
+      const { maxAttempts, windowMinutes, lockoutMinutes } = req.body;
+      const { updateBruteForceConfig, getBruteForceConfig } = await import("./utils/brute-force");
+      updateBruteForceConfig({ maxAttempts, windowMinutes, lockoutMinutes });
+      logSecurity({ type: "config", action: "brute_force_config_updated", userId: req.user?.id, ip: req.ip, success: true, details: { maxAttempts, windowMinutes, lockoutMinutes } });
+      res.json(getBruteForceConfig());
+    } catch {
+      res.status(500).json({ error: "Ошибка обновления конфигурации" });
     }
   });
 }

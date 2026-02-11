@@ -1,8 +1,10 @@
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { initializeAdminUser } from "./admin-init";
+import logger from "./utils/logger";
 
 const app = express();
 const httpServer = createServer(app);
@@ -12,6 +14,60 @@ declare module "http" {
     rawBody: unknown;
   }
 }
+
+const isProd = process.env.NODE_ENV === "production";
+
+const cspDirectives = isProd
+  ? {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://mc.yandex.ru", "https://yastatic.net", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      connectSrc: ["'self'", "https://mc.yandex.ru", "wss:"],
+      frameSrc: ["'self'", "https://yoomoney.ru", "https://3dsec.sberbank.ru"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'self'"],
+    }
+  : {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://mc.yandex.ru", "https://yastatic.net", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      connectSrc: ["'self'", "https://mc.yandex.ru", "wss:", "ws:"],
+      frameSrc: ["'self'", "https://yoomoney.ru", "https://3dsec.sberbank.ru"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'self'"],
+    };
+
+app.use(
+  helmet({
+    contentSecurityPolicy: { directives: cspDirectives },
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    xContentTypeOptions: true,
+    xFrameOptions: { action: "sameorigin" },
+    xXssProtection: true,
+    permittedCrossDomainPolicies: { permittedPolicies: "none" },
+  })
+);
+
+app.use((req, res, next) => {
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(self)");
+  res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
+  next();
+});
 
 app.use(
   express.json({
@@ -25,36 +81,22 @@ app.use(
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
 export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-
-  console.log(`${formattedTime} [${source}] ${message}`);
+  logger.info(message, { source });
 }
 
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
 
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      const logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      if (res.statusCode >= 400) {
+        logger.warn(logLine, { source: "express", ip: req.ip, statusCode: res.statusCode });
+      } else {
+        logger.info(logLine, { source: "express" });
       }
-
-      log(logLine);
     }
   });
 
@@ -69,13 +111,10 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    logger.error(`Unhandled error: ${message}`, { status, stack: err.stack });
     res.status(status).json({ message });
-    throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
   if (process.env.NODE_ENV === "production") {
     serveStatic(app);
   } else {
@@ -83,10 +122,6 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
   httpServer.listen(
     {
@@ -95,7 +130,7 @@ app.use((req, res, next) => {
       reusePort: true,
     },
     () => {
-      log(`serving on port ${port}`);
+      logger.info(`Server started on port ${port}`, { source: "express" });
     },
   );
 })();

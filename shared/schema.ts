@@ -60,6 +60,8 @@ export const users = pgTable("users", {
   vkId: text("vk_id"),
   yandexId: text("yandex_id"),
   avatarUrl: text("avatar_url"),
+  passwordUpgradedAt: timestamp("password_upgraded_at"),
+  passwordPolicyLevel: text("password_policy_level").default("standard"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -18,6 +18,7 @@ replit.nix
 .local
 
 # Logs
+logs/
 *.log
 npm-debug.log*
 
