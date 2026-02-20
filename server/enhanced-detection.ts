@@ -292,7 +292,7 @@ async function fetchWithPlaywright(url: string, timeout = PLAYWRIGHT_TIMEOUT): P
   
   try {
     context = await browser.newContext({
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 SecureLex-Bot/3.0',
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Help152FZ-Bot/3.0',
       locale: 'ru-RU',
       timezoneId: 'Europe/Moscow',
       viewport: { width: 1920, height: 1080 },
@@ -600,7 +600,7 @@ async function checkLegalPages(baseUrl: string): Promise<{ found: string[]; notF
       const fullUrl = new URL(path, baseUrl).toString();
       const response = await fetch(fullUrl, {
         method: 'HEAD',
-        headers: { 'User-Agent': 'SecureLex-Compliance-Bot/3.0' },
+        headers: { 'User-Agent': 'Help152FZ-Compliance-Bot/3.0' },
         redirect: 'follow',
       });
       return response.ok;

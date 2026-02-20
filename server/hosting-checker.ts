@@ -210,7 +210,7 @@ export async function detectPlatformFromHttp(url: string): Promise<PlatformDetec
       redirect: "manual",
       signal: controller.signal,
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; SecureLexBot/1.0)",
+        "User-Agent": "Mozilla/5.0 (compatible; Help152FZBot/1.0)",
         "Accept": "text/html",
       },
     });

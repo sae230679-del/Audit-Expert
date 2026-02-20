@@ -4,6 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-25_05"
+packages = ["unzip"]
 
 [[ports]]
 localPort = 5000
@@ -49,3 +50,8 @@ expertMode = true
 
 [userenv.shared]
 ADMIN_PASSWORD = "admin123"
+DOMAIN = "https://help152fz.ru"
+SITE_URL = "https://help152fz.ru"
+SUPERADMIN_EMAIL = "sae230679@yandex.ru"
+MASTER_ADMIN_EMAIL = "sae230679@yandex.ru"
+MASTER_ADMIN_PIN = "212379"

@@ -44,7 +44,7 @@ async function safeFetch(url: string): Promise<FetchedPage | null> {
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
-        "User-Agent": "SecureLex-Compliance-Bot/2.0 (+https://securelex.ru)",
+        "User-Agent": "Help152FZ-Compliance-Bot/2.0 (+https://help152fz.ru)",
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
       },

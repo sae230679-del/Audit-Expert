@@ -523,7 +523,7 @@ export async function fetchWebsite(urlString: string, timeout = 15000): Promise<
         method: "GET",
         timeout,
         headers: {
-          "User-Agent": "SecureLex-Audit-Bot/1.0 (Website Compliance Checker)",
+          "User-Agent": "Help152FZ-Audit-Bot/1.0 (Website Compliance Checker)",
           "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
           "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
         },
@@ -1450,7 +1450,7 @@ async function runLevel2Analysis(
 
   const systemPrompt = `Ты - эксперт по соответствию сайтов требованиям ФЗ-152 (О персональных данных) и ФЗ-149 (Об информации).
 
-ВАЖНО: Используй знания из справочника SecureLex как ПЕРВИЧНЫЙ источник информации.
+ВАЖНО: Используй знания из справочника Help152FZ как ПЕРВИЧНЫЙ источник информации.
 Если в справочнике есть информация по теме — основывайся на ней.
 Интернет-поиск использовать только для актуальных данных, которых нет в справочнике.
 

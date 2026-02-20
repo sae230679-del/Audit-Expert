@@ -21,8 +21,8 @@ const COMPANY = {
   inn: "9729411485",
   kpp: "772901001",
   phone: "+7 (906) 792-65-33",
-  email: "info@securelex.ru",
-  website: "securelex.ru",
+  email: "info@help152fz.ru",
+  website: "help152fz.ru",
   address: "Россия, г. Москва",
 };
 
@@ -281,7 +281,7 @@ class PdfReportGenerator {
       bufferPages: true,
       info: {
         Title: `${reportType === "express" ? "Экспресс-отчёт" : "Полный отчёт"} - ${data.websiteUrl}`,
-        Author: "SecureLex.ru",
+        Author: "help152fz.ru",
         Subject: "Аудит соответствия законодательству РФ",
         Keywords: "ФЗ-152, ФЗ-149, аудит, персональные данные",
       },
@@ -317,7 +317,7 @@ class PdfReportGenerator {
     // Company name on the left
     this.doc.fontSize(10)
        .fillColor(COLORS.primary)
-       .text("SECURELEX.RU", PAGE.marginLeft, y, { continued: false });
+       .text("HELP152FZ.RU", PAGE.marginLeft, y, { continued: false });
     
     // Smaller company legal name below
     this.doc.fontSize(7)
@@ -389,7 +389,7 @@ class PdfReportGenerator {
     this.doc.fontSize(7)
        .fillColor(COLORS.textLight)
        .text(
-         `© ${new Date().getFullYear()} SecureLex`,
+         `© ${new Date().getFullYear()} Help152FZ`,
          PAGE.width - PAGE.marginRight - 80,
          y + 6,
          { width: 80, align: "right" }
@@ -418,7 +418,7 @@ class PdfReportGenerator {
     // Main logo/brand
     this.doc.fontSize(32)
        .fillColor(COLORS.primary)
-       .text("SECURELEX.RU", { align: "center" });
+       .text("HELP152FZ.RU", { align: "center" });
     
     this.doc.moveDown(0.3);
     this.doc.fontSize(11)
@@ -747,12 +747,12 @@ class PdfReportGenerator {
     
     this.doc.fontSize(11)
        .fillColor(COLORS.primary)
-       .text("securelex.ru/audit", { align: "center", underline: true });
+       .text("help152fz.ru/audit", { align: "center", underline: true });
     
     this.doc.moveDown(0.5);
     this.doc.fontSize(10)
        .fillColor(COLORS.textMuted)
-       .text("support@securelex.ru", { align: "center" });
+       .text("support@help152fz.ru", { align: "center" });
   }
   
   private renderFullCriteriaTable(): void {
@@ -1043,13 +1043,13 @@ class PdfReportGenerator {
     
     this.doc.fontSize(11)
        .fillColor(COLORS.primaryDark)
-       .text("КОНТАКТЫ SECURELEX.RU", PAGE.marginLeft, this.doc.y);
+       .text("КОНТАКТЫ HELP152FZ.RU", PAGE.marginLeft, this.doc.y);
     this.doc.moveDown(0.5);
     
     this.doc.fontSize(10)
        .fillColor(COLORS.text)
-       .text("Сайт: securelex.ru", PAGE.marginLeft, this.doc.y);
-    this.doc.text("Email: support@securelex.ru");
+       .text("Сайт: help152fz.ru", PAGE.marginLeft, this.doc.y);
+    this.doc.text("Email: support@help152fz.ru");
   }
   
   private addHeadersAndFooters(): void {
