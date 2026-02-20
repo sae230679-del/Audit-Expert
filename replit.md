@@ -1,11 +1,26 @@
-# Help152FZ.ru - Legal Compliance Audit Platform
+# Help152FZ.ru - Платформа аудита соответствия ФЗ-152
 
 ## Overview
-Help152FZ is a Russian-language web application designed to assist website owners in ensuring their sites comply with Russian data protection laws (152-FZ and 149-FZ). The platform provides free express audits across 9 compliance criteria and offers detailed reports and professional audit packages for purchase. The project aims to simplify legal compliance for website owners, offering a comprehensive and accessible tool with an integrated AI consultant, a referral program, and robust administrative capabilities.
+Help152FZ.ru — русскоязычная веб-платформа для проверки сайтов на соответствие законодательству о персональных данных (152-ФЗ и 149-ФЗ). Предоставляет бесплатный экспресс-аудит по 9 критериям, детальные отчёты и профессиональные пакеты аудита. Домен: help152fz.ru (ранее securelex.ru — код тот же, изменена конфигурация).
+
+## Recent Changes
+- **2026-02-20**: Импорт проекта в Replit, создание базы данных PostgreSQL
+- **2026-02-20**: Распаковка конфигурационного пакета help152fz (ecosystem, nginx, .env, скрипты для VPS)
+- **2026-02-20**: Замена всех упоминаний securelex.ru на help152fz.ru в коде (server, client)
+- **2026-02-20**: Настройка переменных окружения: DOMAIN, SITE_URL, SUPERADMIN_EMAIL, MASTER_ADMIN_EMAIL, MASTER_ADMIN_PIN, SUPERADMIN_PASSWORD
+- **2026-02-20**: Обновление ecosystem.config.cjs для VPS-деплоя
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 Preferred language: Russian (все общение на русском языке).
+
+## VPS Production (help152fz.ru)
+- IP: 77.222.37.120
+- Домен: help152fz.ru
+- Путь: /var/www/help152fz.ru
+- PM2 процесс: help152fz
+- Конфигурация: help152fz/ (ecosystem.config.cjs, nginx-help152fz.conf, .env.template, setup-vps.sh)
+- SuperAdmin email: sae230679@yandex.ru
 
 ## System Architecture
 
